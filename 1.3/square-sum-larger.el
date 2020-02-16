@@ -1,0 +1,11 @@
+(defun square-sum-larger (a b c)
+  (defun sqr (a)
+    (* a a))
+  (defun square-sum (a b)
+    (+ (sqr a) (sqr b)))
+    (cond ((and (>= a b) (>= b c)) (square-sum a b))
+          ((and (>= a b) (>= c b)) (square-sum a c))
+          ((and (>= b a) (>= a c)) (square-sum b a))
+          ((and (>= b a) (>= c a)) (square-sum b c))))
+
+(square-sum-larger 3 4 1)

@@ -52,7 +52,7 @@
           (t (search-for-primes (+ n 1) count))))
   (iter n count))
 
-(search-for-primes 1001 3)              ;0.00024
-(search-for-primes 10001 3)             ;0.00069
-(search-for-primes 100001 3)            ;0.000205
-(search-for-primes 1000001 3)           ;(error "Lisp nesting exceeds ‘max-lisp-eval-depth’")
+(search-for-primes 1001 3)              ;3.504753112792969e-050
+(search-for-primes 10001 3)             ;8.511543273925781e-050
+(search-for-primes 100001 3)            ;0.00026
+(search-for-primes 1000001 3)           ;0.00077

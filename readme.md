@@ -12,6 +12,15 @@ Emacs lisp evaluation:
 
 https://www.gnu.org/software/emacs/manual/html_node/efaq/Evaluating-Emacs-Lisp-code.html
 
+**NOTE**: Emacs do not have optimization of tail recursion according to this [SO answer](https://stackoverflow.com/questions/38493904/why-is-there-no-tail-recursion-optimization-in-emacs-lisp-not-but-like-other-sc), we need to increase the default `max-lisp-eval-depth`, otherwise we'll run into errors easily.
+
+Add following lines to `.emacs`:
+
+```
+;; increase max-lisp-eval-depth from 500 to 100000
+(setq max-specpdl-size         100000
+      max-lisp-eval-depth      100000)
+```
 
 ## 1.1 The Elements of Programming
 

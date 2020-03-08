@@ -21,6 +21,7 @@
 (define (mysqrt x)
   (sqrt-iter 1.0 x))
 
+(mysqrt 4)
 (mysqrt 0.0009)
 (square (mysqrt 0.0009))
 (mysqrt 9400000000000000000)

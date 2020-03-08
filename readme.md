@@ -12,7 +12,7 @@ Emacs lisp evaluation:
 
 https://www.gnu.org/software/emacs/manual/html_node/efaq/Evaluating-Emacs-Lisp-code.html
 
-**NOTE**: Emacs do not have optimization of tail recursion according to this [SO answer](https://stackoverflow.com/questions/38493904/why-is-there-no-tail-recursion-optimization-in-emacs-lisp-not-but-like-other-sc), we need to increase the default `max-lisp-eval-depth`, otherwise we'll run into errors easily.
+**NOTE 1**: Emacs do not have optimization of tail recursion according to this [SO answer](https://stackoverflow.com/questions/38493904/why-is-there-no-tail-recursion-optimization-in-emacs-lisp-not-but-like-other-sc), we need to increase the default `max-lisp-eval-depth`, otherwise we'll run into errors easily.
 
 Add following lines to `.emacs`:
 
@@ -21,6 +21,8 @@ Add following lines to `.emacs`:
 (setq max-specpdl-size         100000
       max-lisp-eval-depth      100000)
 ```
+
+**NOTE 2**: Add `(setq lexical-binding t)` to the buffer to enable Elisp closure, see [lexical bidning](https://www.emacswiki.org/emacs/LexicalBinding).
 
 ## 1.1 The Elements of Programming
 
@@ -66,9 +68,28 @@ Scheme interpreter implements tail recursion, so the special iteration construct
 
 ## 1.3 Formulating Abstractions with Higher-Order Procedures
 
+### Definition
 
-Elisp closure:
+Higher-order procedures are procedures that manipulate procedures in which accept procedures as arguments or return procedures as values.
 
-```
-(setq lexical-binding t)
-```
+### Why need Higher-Order procedures ?
+
+Quote from the book:
+
+> Yet even in numerical processing we will be severely limited in our ability to create abstractions if we are restricted to procedures whose parameters must be numbers. Often the same programming pattern will be used with a number of different procedures.
+
+### Lambda
+
+In order to eliminate the definition of trival procedures in higher-order procedure, `lambda` is introduced to define procedures on the fly.
+
+By the way, the name of `lambda` is a bit obscure, it would be clearer and less intimidating to people learning Lisp if a name more obvious than `lambda`, such as `make-procedure`, were used.
+
+### First-class elements
+
+Quote from the book:
+
+> In general, programming languages impose restrictions on the ways in which computational elements can be manipulated. Elements with the fewest restrictions are said to have first-class status. Some of the “rights and privileges” of first-class elements are:
+> - They may be named by variables.
+> - They may be passed as arguments to procedures.
+> - They may be returned as the results of procedures.
+> - They may be included in data structures.65

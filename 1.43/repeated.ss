@@ -1,13 +1,10 @@
-(define (expt b n)
-  (if (= n 0)
-      1
-      (* b (expt b (- n 1)))))
-
-(define (compose f g)
-  (lambda (x y) (f (g x) y)))
-
 (define (repeated f n)
-  (lambda (x)
-    ((compose expt f) x n)))
+  (define (compose f g)
+    (lambda (x)
+      (f (g x))))
+  
+  (if (= n 1)
+      f
+      (compose f (repeated f (- n 1)))))
 
 ((repeated square 5) 2)

@@ -65,3 +65,10 @@ For common languages (C, Python) that do not implement tail recursion, describe 
 Scheme interpreter implements tail recursion, so the special iteration constructs are usefull only as syntactic sugar.
 
 ## 1.3 Formulating Abstractions with Higher-Order Procedures
+
+
+Elisp closure:
+
+```
+(setq lexical-binding t)
+```

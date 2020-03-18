@@ -21,8 +21,19 @@
       t
     nil))
 
+(defun square (n)
+  (* n n))
+
+(defun map (proc items)
+  (if (null items)
+      nil
+    (cons (funcall proc (car items))
+          (map proc (cdr items)))))
+
 (provide 'remainder)
 (provide 'gcd)
 (provide 'average)
 (provide 'even?)
 (provide 'odd?)
+(provide 'square)
+(provide 'map)

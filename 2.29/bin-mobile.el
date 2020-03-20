@@ -19,31 +19,70 @@
 (defun branch-structure (branch)
   (car (cdr branch)))
 
+(defun simple-weight-structure? (structure)
+  (if (consp structure)
+      nil
+    t))
+
 ;; ****************************************
-(defun branch-weight (branch)
+(defun branch-total-weight (branch)
   (let ((s (branch-structure branch)))
     (cond ((null branch) 0)
-          ((consp s)
-           (branch-weight s))
-          (t s))))
+          ((simple-weight-structure? s)
+           s)
+          (t (total-weight s)))))
 
 (defun total-weight (mobile)
-  (+ (branch-weight (left-branch mobile))
-     (branch-weight (right-branch mobile))))
+  (+ (branch-total-weight (left-branch mobile))
+     (branch-total-weight (right-branch mobile))))
+
+(setq left (make-branch 4 4))
+(setq right (make-branch 4 4))
+(setq mobile (make-mobile left right))
+
+(total-weight (make-mobile (make-branch 1 mobile)
+                           (make-branch 2 mobile)))
+
 
 ;; ****************************************
-(defun branch-length (branch)
+(defun branch-torque (branch)
   (let ((s (branch-structure branch)))
-    (cond ((null branch) 0)
-          ((consp s)
-           (branch-length s))
-          (t (car branch)))))
+    (cond
+     ((null branch) 0)
+     ((simple-weight-structure? s) (* s (branch-length branch)))
+     (t (* (mobile-torque s) (branch-length branch))))))
+
+(defun mobile-torque (mobile)
+  (+ (branch-torque (left-branch mobile))
+     (branch-torque (right-branch mobile))))
+
+(defun branch-balanced? (branch)
+  (let ((s (branch-structure branch)))
+    (if (simple-weight-structure? s)
+        t
+      (balanced? s))))
 
 (defun balanced? (mobile)
-  (let ((left (left-branch mobile))
-        (right (right-branch mobile)))
-    (= (* (branch-weight left) (branch-length left))
-       (* (branch-weight right) (branch-length right)))))
+  ;; A mobile is said to be balanced if ...
+
+  (and
+   ;; 1) the torque applied by its top-left branch is equal to that applied by
+   ;; its top-right branch (that is, if the length of the left rod multiplied by
+   ;; the weight hanging from that rod is equal to the corresponding product for
+   ;; the right side) and if ...
+   (= (branch-torque (left-branch mobile))
+      (branch-torque (right-branch mobile)))
+
+   ;; 2) each of the submobiles hanging off its branches is balanced.
+   (branch-balanced? (left-branch mobile))
+   (branch-balanced? (right-branch mobile))
+   ))
+
+(mobile-torque (make-mobile (make-branch 1 mobile)
+                           (make-branch 2 mobile)))
+
+(balanced? (make-mobile (make-branch 2 mobile)
+                           (make-branch 2 mobile)))
 
 ;; TEST ******************************
 

@@ -42,9 +42,10 @@
 ;; ****************************************
 (defun matrix-*-matrix (m n)
   (let ((cols (transpose n)))
-    (message "%s %s" (car m) (car trans-n))
-    (matrix-*-vector cols (car m))
-    )
-  )
+    (message "%s %s" (car m) (car cols))
 
-(append (list (list)) (matrix-*-matrix m m))
+    (map
+     (lambda (x) (matrix-*-vector cols x))
+     m)))
+
+(matrix-*-matrix m m)

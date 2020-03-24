@@ -30,6 +30,12 @@
     (cons (funcall proc (car items))
           (map proc (cdr items)))))
 
+(defun accumulate (op initial sequence)
+  (if (null sequence)
+      initial
+    (funcall op (car sequence)
+             (accumulate op initial (cdr sequence)))))
+
 (provide 'remainder)
 (provide 'gcd)
 (provide 'average)
@@ -37,3 +43,4 @@
 (provide 'odd?)
 (provide 'square)
 (provide 'map)
+(provide 'accumulate)

@@ -93,3 +93,36 @@ Quote from the book:
 > - They may be passed as arguments to procedures.
 > - They may be returned as the results of procedures.
 > - They may be included in data structures.65
+
+## 2.1  Introduction to Data Abstraction
+
+Just like procedure abstraction, data abstraction is a methodology that enables us to isolate how a compound data is used from the details of how it is constructed.
+
+As the example of rational numbers demonstrates,
+
+![data abstraction barriers](https://xuanji.appspot.com/isicp/images/ch2-Z-G-6.gif)
+
+lower layers expose only a few methods (`constructor & selectors` ) for the upper layers to use, how the lower layers are implemented is irrelevant to the upper layer.
+
+### Data or Procedure ??
+
+A valid but conter -intuitive implementation of `cons`:
+
+```
+(define (cons x y)
+  (define (dispatch m)
+    (cond ((= m 0) x)
+          ((= m 1) y)
+          (else (error "Argument not 0 or 1 -- CONS" m))))
+  dispatch)
+
+(define (car z) (z 0))
+
+(define (cdr z) (z 1))
+```
+
+### What is mean by Data ?
+
+> In general, we can think of data as defined by some collection of selectors and constructors, together with specified conditions that these procedures must fulfill in order to be a valid representation.
+
+This definition does not distinguish whether Data is "real" data structure or not, as long as it satisfies the conditions.

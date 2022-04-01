@@ -9,4 +9,3 @@
 (for-each (lambda (x) (message "%s" x))
           (list 1 2 3))
 
-

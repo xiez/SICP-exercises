@@ -24,6 +24,7 @@
 
 (cons (append (append nil (list 1)) (list 2)) 3)
 
+
 (defun my-reverse (sequence)
   (fold-right (lambda (x y)
                 (progn
@@ -39,6 +40,5 @@
                  (message "%s, %s" x y)
                  (cons y x)
                  )) nil sequence))
-
 
 (my-reverse2 (list 1 2 3))

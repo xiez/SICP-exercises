@@ -21,8 +21,26 @@
       t
     nil))
 
+(defun square (n)
+  (* n n))
+
+(defun map (proc items)
+  (if (null items)
+      nil
+    (cons (funcall proc (car items))
+          (map proc (cdr items)))))
+
+(defun accumulate (op initial sequence)
+  (if (null sequence)
+      initial
+    (funcall op (car sequence)
+             (accumulate op initial (cdr sequence)))))
+
 (provide 'remainder)
 (provide 'gcd)
 (provide 'average)
 (provide 'even?)
 (provide 'odd?)
+(provide 'square)
+(provide 'map)
+(provide 'accumulate)

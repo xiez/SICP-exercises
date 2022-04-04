@@ -8,6 +8,10 @@ Racket SICP collections:
 
 https://docs.racket-lang.org/sicp-manual/
 
+Racket SICP Picture language (used in Chapter 2.2):
+
+https://docs.racket-lang.org/sicp-manual/SICP_Picture_Language.html
+
 Emacs lisp evaluation:
 
 https://www.gnu.org/software/emacs/manual/html_node/efaq/Evaluating-Emacs-Lisp-code.html
@@ -106,7 +110,7 @@ lower layers expose only a few methods (`constructor & selectors` ) for the uppe
 
 ### Data or Procedure ??
 
-A valid but conter -intuitive implementation of `cons`:
+A valid but conter-intuitive implementation of `cons`:
 
 ```
 (define (cons x y)
@@ -126,3 +130,30 @@ A valid but conter -intuitive implementation of `cons`:
 > In general, we can think of data as defined by some collection of selectors and constructors, together with specified conditions that these procedures must fulfill in order to be a valid representation.
 
 This definition does not distinguish whether Data is "real" data structure or not, as long as it satisfies the conditions.
+
+## 2.2 Hierarchical Data and the Closure Property
+
+The "closure property" of `cons`, meaning, the result of cons can be combined using cons again. It permits us to create "sequences" and "hierarchical" structures (List, Tree).
+
+> The use of the word "closure" here comes from abstract algebra, where a set of elements is said to be closed under an operation if applying the operation to elements in the set produces an element that is again an element of the set. The Lisp community also (unfortunately) uses the word "closure" to describe a totally unrelated concept: A closure is an implementation technique for representing procedures with free variables. We do not use the word "closure" in this second sense in this book. 
+
+
+The examples in this section demonstrates two powerful design priciple, "conventional interfaces" and "stratified design".
+
+### Conventional Interfaces
+
+```
+(define (salary-of-highest-paid-programmer records)
+  (accumulate max
+              0
+              (map salary
+                   (filter programmer? records))))
+```
+
+> Sequences, implemented here as lists, serve as a conventional interface that permits us to combine processing modules.
+
+### Stratified Design
+
+The picture language demonstrates the power of stratified design in complex system. Just like data abstraction berries in section 2.1, the picture language use primitive painters `segments->painter`, combine those primitive painters to geometric combiners such as `beside` and `below`, then using those combiners as primitives to work at higher level, such as `square-of-four`.
+
+> Stratified design helps make programs robust , that is, it makes it likely that small changes in a specification will require correspondingly small changes in the program.

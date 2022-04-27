@@ -1,0 +1,131 @@
+#lang scheme
+
+(define (make-account balance)
+  (define (withdraw amount)
+    (if (>= balance amount)
+        (begin (set! balance (- balance amount))
+               balance)
+        "Insufficient funds"))
+  (define (deposit amount)
+    (set! balance (+ balance amount))
+    balance)
+  (define (dispatch m)
+    (cond ((eq? m 'withdraw) withdraw)
+          ((eq? m 'deposit) deposit)
+          (else (error "Unknown request -- MAKE-ACCOUNT" m))))
+
+  dispatch)
+
+(define A1 (make-account 100))
+((A1 'withdraw) 10)
+
+;;; 3.1
+
+(define (make-accumulator sum)
+  (lambda (amount)
+    (begin (set! sum (+ sum amount))
+            sum)))
+
+(define A (make-accumulator 5))
+(A 5)
+(A 10)
+(define A2 (make-accumulator 5))
+(A2 5)
+
+;;; 3.2
+;; (define (make-monitored func)
+;;   (define (make-monitored-1 func counter)
+;;     (define (how-many-calls?) counter)
+;;     (define (dispatch m)
+;;       (cond ((eq? m 'how-many-calls?) (how-many-calls?))
+;;             ((eq? m 'reset-count) (begin (set! counter 0)
+;;                                          'reset) )
+;;             (else (begin (set! counter (+ counter 1))
+;;                          (func m)))))
+;;     dispatch)
+;;   (make-monitored-1 func 0))
+
+(define (make-monitored func)
+  (let ((counter 0))
+    (define (how-many-calls?) counter)
+
+    (define (dispatch m)
+      (cond ((eq? m 'how-many-calls?) (how-many-calls?))
+            ((eq? m 'reset-count) (begin (set! counter 0)
+                                         'reset) )
+            (else (begin (set! counter (+ counter 1))
+                         (func m)))))
+    dispatch))
+
+(define s (make-monitored sqrt))
+(s 100)
+(s 'how-many-calls?)
+(s 'reset-count)
+(s 'how-many-calls?)
+
+;;; 3.3
+(define (make-account balance password)
+  (define (withdraw amount)
+    (if (>= balance amount)
+        (begin (set! balance (- balance amount))
+               balance)
+        "Insufficient funds"))
+  (define (deposit amount)
+    (set! balance (+ balance amount))
+    balance)
+  (define (dispatch pwd m)
+    (if (eq? pwd password)
+        (cond ((eq? m 'withdraw) withdraw)
+          ((eq? m 'deposit) deposit)
+          (else (error "Unknown request -- MAKE-ACCOUNT" m)))
+        (error "Incorrect password")))
+
+  dispatch)
+
+(define acc (make-account 100 'secret))
+((acc 'secret 'withdraw) 10)
+((acc 'secret 'deposit) 10)
+((acc 'other-secret 'withdraw) 10)
+
+;;; 3.4
+(define (make-account balance password)
+  (let ((incorrect-pwd-limit 3)
+        (pwd-counter 0))
+    (define (increase-counter)
+      (set! pwd-counter (+ pwd-counter 1)))
+    (define (reset-counter)
+      (set! pwd-counter 0))
+    (define (exceed-limit?)
+      (>= pwd-counter incorrect-pwd-limit))
+
+    (define (call-the-cops)
+      (error "Call the cops!"))
+
+    (define (withdraw amount)
+      (if (>= balance amount)
+          (begin (set! balance (- balance amount))
+                 balance)
+          "Insufficient funds"))
+    (define (deposit amount)
+      (set! balance (+ balance amount))
+      balance)
+    (define (dispatch pwd m)
+      (if (eq? pwd password)
+          (begin
+            (reset-counter)
+            (cond ((eq? m 'withdraw) withdraw)
+                  ((eq? m 'deposit) deposit)
+                  (else (error "Unknown request -- MAKE-ACCOUNT" m))))
+
+          (if (exceed-limit?) (call-the-cops)
+              (begin
+                (increase-counter)
+                (error "Incorrect password")))))
+    dispatch))
+
+(define acc (make-account 100 'secret))
+((acc 'secret 'withdraw) 10)
+((acc 'secret 'deposit) 10)
+((acc 'other-secret 'withdraw) 10)
+((acc 'other-secret 'withdraw) 10)
+((acc 'other-secret 'withdraw) 10)

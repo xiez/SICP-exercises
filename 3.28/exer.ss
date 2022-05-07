@@ -94,3 +94,8 @@
 (= (get-signal b) 0)
 
 
+;;; add more wires
+(define c (make-wire))
+(prob 'wire-c c)
+(or-gate a2 b c)
+(set-signal! a2 1)

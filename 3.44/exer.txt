@@ -1,0 +1,3 @@
+Louis is wrong.
+
+The essential difference between the transfer and exchange is that there is a local variable `difference` in the exchange procedure, which may no longer reflects reality if there is concurrent update to the balance value during `exchange`.

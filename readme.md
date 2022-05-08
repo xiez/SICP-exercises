@@ -1,4 +1,8 @@
-For a better understanding of the examples in Structure and Interpretation of Computer Programs(SICP), as well as learning Emacs lisp, all exercises will be answered both in Scheme and Elisp.
+For a better understanding of the examples in Structure and Interpretation of Computer Programs(SICP), as well as learning Emacs lisp, exercises will be answered in Scheme or Elisp.
+
+MIT Version:
+
+https://mitpress.mit.edu/sites/default/files/sicp/full-text/book/book-Z-H-23.html#%_sec_3.4
 
 SICP Interactive Version:
 

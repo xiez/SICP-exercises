@@ -30,10 +30,6 @@ Add the following lines to `.emacs`:
 
 ## 1.1 The Elements of Programming
 
-### Exercises
-
-1.3 - 1.8
-
 ## 1.2 Procedures and the Processes They Generate
 
 The discussion in this section about the difference between recursion and iteration is a must-read, and priceless.
@@ -176,7 +172,7 @@ As the example of the complex-arithmetic package demonstrates, a new representat
 
 ![multiple representations of data](https://xuanji.appspot.com/isicp/images/ch2-Z-G-54.gif)
 
-Each representation of data has its own constructor and a "special tag" which is used to distinguish what type of data is.
+Each representation of data has its constructor and a "special tag" which is used to distinguish what type of data is.
 
 For example, Ben's rectangular representation:
 
@@ -320,5 +316,92 @@ and put it to a hash table, then modify the `apply-genric` procedure to look up 
                      (list op type-tags)))))))
 ```
 
+## 3.1 Assignment and Local State
+
+From this chapter, we view the world as the composition of many objects, each object has its `local state variables, and objects can interact with each other. Since the states of objects change over time, an `assignment operator` must be provided by the language.
+
+We can use `let` to establish an environment with a local state variable, and use `set!` to mutate the local state.
+
+```
+(define new-withdraw
+  (let ((balance 100))
+    (lambda (amount)
+      (if (>= balance amount)
+          (begin (set! balance (- balance amount))
+                 balance)
+          "Insufficient funds"))))
+```
+
+The benefit of introducing assignments is that we can structure systems in a more modular fashion than if all states had to be manipulated explicitly, by passing additional parameters.
+
+The cost of introducing an assignment is that our programming language can no longer be interpreted in terms of the substitution model.
+
+### Functional programming
+
+Programming without using any assignments, as we did throughout the first two chapters. The same procedure with the same arguments will always produce the same result so that procedures can be viewed as computing mathematical functions, thus the name "functional".
+
+### Imperative programming
+
+Programming that makes extensive use of assignment, which makes our computation model complicated which we will see in section 3.2. Programs written in imperative style are susceptible to bugs that cannot occur in functional programs. It becomes even worse if we consider applications in which several processes execute concurrently which we will see in section 3.4.
+
+> In view of this, it is ironic that introductory programming is most often taught in a highly imperative style. This may be a vestige of a belief, common throughout the 1960s and 1970s, that programs that call procedures must inherently be less efficient than programs that perform assignments. (Steele (1977) debunks this argument.) Alternatively it may reflect a view that step-by-step assignment is easier for beginners to visualize than procedure call. Whatever the reason, it often saddles beginning programmers with "should I set this variable before or after that one" concerns that can complicate programming and obscure the important ideas.
+
+## 3.2 The Environment Model for Evaluation
+
+**This section is very important and worth reading more than once.**
+
+The environment is crucial to the evaluation process because it determines the context in which an expression should be evaluated.
+
+An environment is a series of frames. A frame, like a box or a set, may contain several bindings, which associate variable names with their corresponding values.
+
+In the environment model of evaluation, a procedure object is always a pair consisting of some code and a pointer to an environment, e.g. `(cons <func-params and body> <env pointer>)`.
 
 
+For example,
+
+```
+(define (square x)
+  (* x x))
+```
+
+When a procedure is defined, the lambda expression was evaluated to produce the procedure, and a new binding, which associates the procedure object with the symbol `square`, has been added to the global environment.
+
+When the procedure is applied, `(square 5)`,  a new frame was created and binds the parameters `x` to the value `5`. Within this new environment, we evaluate the body of square `(* x x)`, and the result is `(* 5 5)`, or 25.
+
+Another example,
+
+```
+(define (f x)
+  (define (g y)
+    (+ x y))
+  g)
+```
+
+When `f` is defined, a new procedure object is created and a new symbol `f` is created in the global environment which binds to the newly created procedure object.
+
+When `f` is applied, `(f 5)`, a new frame containing `x=5` is created. Within this new environment, we start to evaluate the body of `f` which defines another function `g`. Again, a new procedure object is created and a new symbol `g` is created in the environment where `f` is evaluated, and bound to the newly created procedure object.
+
+When `g` is applied, `((f 5) 6)`, a new frame containing `y=6` is created and points to the previous frame containing `x=5`, within this new environment, we start to evaluate the body of g `(+ x y)`, and the result is `(+ 5 6)`, or 11.
+
+The crucial point to observe is that the frame created by `g` has its enclosing environment, not the global environment, but rather the environment used by `f`.
+
+### The environment model
+
+>  The environment model of procedure application can be summarized by two rules:
+
+>    A procedure object is applied to a set of arguments by constructing a frame, binding the formal parameters of the procedure to the arguments of the call, and then evaluating the body of the procedure in the context of the new environment constructed. The new frame has as its enclosing environment the environment part of the procedure object being applied.
+
+>    A procedure is created by evaluating a lambda expression relative to a given environment. The resulting procedure object is a pair consisting of the text of the lambda expression and a pointer to the environment in which the procedure was created.
+
+These rules, though considerably more complex than the substitution model, are still reasonably straightforward.
+
+### Frames as the Repository of Local State
+
+Applying the same procedure multiple times will create different frames, the `set!` operator in the procedure only mutates the value in its frame.
+
+
+## 3.3 Modeling with Mutable Data
+
+To model systems composed of objects that have changing states, `mutators` are introduced in this section. These mutators greatly enhance the representational power of pairs, enabling us to build more complex data structures.
+
+Two examples (simulator for digital circuits and constraints propagation system) in this section are fascinating and eye-opening.

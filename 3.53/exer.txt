@@ -1,0 +1,9 @@
+(define s (cons-stream 1 (add-streams s s)))
+
+s is a pair whose car is 1 and whose cdr is a promise to add the car of s and the car of s, which doubles the car of s.
+Evaluating the cdr gives us 2 and a promsise to double the car of s.
+
+Evaluating the cdr gives us 4 and a promsise to double the car of s.
+
+...
+

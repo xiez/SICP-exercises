@@ -336,7 +336,7 @@ We can use `let` to establish an environment with a local state variable, and us
           "Insufficient funds"))))
 ```
 
-The benefit of introducing assignments is that we can structure systems in a more modular fashion than if all states had to be manipulated explicitly, by passing additional parameters.
+The benefit of introducing assignments is that we can structure systems in a more modular fashion than if all states had to be manipulated explicitly by passing additional parameters.
 
 The cost of introducing an assignment is that our programming language can no longer be interpreted in terms of the substitution model.
 
@@ -356,7 +356,7 @@ Programming that makes extensive use of assignment, which makes our computation 
 
 The environment is crucial to the evaluation process because it determines the context in which an expression should be evaluated.
 
-An environment is a series of frames. A frame, like a box or a set, may contain several bindings, which associate variable names with their corresponding values.
+An environment is a series of frames. Frame, like a box or a set, may contain several bindings, which associate variable names with their corresponding values.
 
 In the environment model of evaluation, a procedure object is always a pair consisting of some code and a pointer to an environment, e.g. `(cons <func-params and body> <env pointer>)`.
 
@@ -406,6 +406,203 @@ Applying the same procedure multiple times will create different frames, the `se
 
 ## 3.3 Modeling with Mutable Data
 
-To model systems composed of objects that have changing states, `mutators` are introduced in this section. These mutators greatly enhance the representational power of pairs, enabling us to build more complex data structures.
+To model systems composed of objects that have changing states, `mutators` are introduced in this section. These mutators greatly enhance the representational power of pairs, enabling us to build more complex data structures like queues and tables.
 
 Two examples (simulator for digital circuits and constraints propagation system) in this section are fascinating and eye-opening.
+
+## 3.4 Concurrency
+
+This section goes further in structuring computational models to match our perception of the physical world. Objects act concurrently, the states do not change at a time in sequence, but all at once.
+
+### Mechanisms for Controlling Concurrency
+
+**Serializer** can be used to control access to shared variables.
+
+The following code can only produce only two possible values for x, 101, or 121. The other possibilities are eliminated because the execution of P1 and P2 cannot be interleaved.
+
+```
+(define x 10)
+
+(define s (make-serializer))
+
+(parallel-execute (s (lambda () (set! x (* x x))))
+                  (s (lambda () (set! x (+ x 1)))))
+```
+
+### Implementing serializers
+
+Serializers can be implemented in terms of a more primitive synchronization mechanism called a mutex.
+
+```
+(define (make-serializer)
+  (let ((mutex (make-mutex)))
+    (lambda (p)
+      (define (serialized-p . args)
+        (mutex 'acquire)
+        (let ((val (apply p args)))
+          (mutex 'release)
+          val))
+      serialized-p)))
+```
+
+A mutex is a mutable object that can hold the value true or false. When the value is false, the mutex is available to be acquired. When the value is true, the mutex is unavailable, and any process that attempts to acquire the mutex must wait.
+
+```
+(define (make-mutex)
+  (let ((cell (list false)))
+    (define (the-mutex m)
+      (cond ((eq? m 'acquire)
+             (if (test-and-set! cell)
+                 (the-mutex 'acquire))) ; retry
+            ((eq? m 'release) (clear! cell))))
+    the-mutex))
+(define (clear! cell)
+  (set-car! cell false))
+```
+
+The `test-and-set!` operation must be performed atomically. Following implementation does not suffice.
+
+```
+(define (test-and-set! cell)
+  (if (car cell)
+      true
+      (begin (set-car! cell true)
+             false)))
+```
+
+The actual implementation of `test-and-set!` depends on the details of how our system runs concurrent processes.
+
+For example, for a sequential processor using a time-slicing mechanism, `test-and-set!` can work by disabling time-slicing during the testing and setting. Alternatively, multiprocessing computers provide instructions that support atomic operations directly in hardware.
+
+### Deadlock
+
+> Deadlock is always a danger in systems that provide concurrent access to multiple shared resources.
+
+> One way to avoid the deadlock in this situation is to give each account a unique identification number and rewrite serialized-exchange so that a process will always attempt to enter a procedure protecting the lowest-numbered account first. 
+
+## 3.5 Streams
+
+> In an attempt to model real-world phenomena, we made some apparently reasonable decisions: We modeled real-world objects with local state by computational objects with local variables. We identified time variation in the real world with time variation in the computer. We implemented the time variation of the states of the model objects in the computer with assignments to the local variables of the model objects.
+
+Using objects with local states to model the real-world and change states over time using `set!` will raise some complex problems in some circumstances like concurrency.
+
+We can use streams to model the change of states without using `set!`. The initial value and the value after each change are stored in a sequence-like data structure called `streams`. We can refer to the state at any time in the stream, a stream can be very large (even infinite).
+
+
+### Streams are delayed lists
+
+Streams can be implemented using a "delayed list".
+
+A delayed list likes a normal list `'(1 2 3)`, except the cdr of the list is delayed evaluated.
+
+We can make a delayed list using `cons-stream`, which is a special form defined so that
+
+```
+(cons-stream <a> <b>)
+```
+
+is equivalent to
+
+```
+(cons <a> (delay <b>))
+```
+
+We can use the macro to implement `cons-stream` as:
+
+```
+(define-syntax cons-stream
+  (syntax-rules ()
+    ((cons-stream a b)
+     (cons a (delay b)))))
+```
+
+When the cdr of a stream is referred, it's then forced to evaluate.
+
+```
+(define (stream-car stream) (car stream))
+
+(define (stream-cdr stream) (force (cdr stream)))
+```
+
+A stream has all the operations that a list has, like `stream-ref`, `stream-for-each`, `stream-map`, `stream-filter` ...
+
+
+### Implementing delay and force
+
+Delay can be a special form such that
+
+`(delay <exp>)`
+
+is syntactic sugar for
+
+`(lambda () <exp>)`
+
+We can use macros to implement `delay` as:
+
+```
+(define-syntax delay
+  (syntax-rules ()
+    ((delay exp)
+     (memo-proc (lambda () exp)))))
+```
+
+Force simply calls the procedure (of no arguments) produced by delay, so we can implement force as a procedure:
+
+```
+(define (force delayed-object)
+  (delayed-object))
+```
+
+An important optimization that should be introduced to the `delay` function is the `memo-proc` function which is used to remember the previous calculated value in the stream.
+
+```
+(define (memo-proc proc)
+  (let ((already-run? false) (result false))
+    (lambda ()
+      (if (not already-run?)
+          (begin (set! result (proc))
+                 (set! already-run? true)
+                 result)
+          result))))
+```
+
+### Infinite streams
+
+An infinite integer can be defined by specifying a `generating` procedure that explicitly computes the stream elements one by one:
+
+```
+(define (integers-starting-from n)
+  (cons-stream n (integers-starting-from (+ n 1))))
+
+(define integers (integers-starting-from 1))
+```
+
+The car of `integers` is 1 and the cdr is a promise to produce the integers beginning with 2.
+
+A stream can also be **implicitly** defined like a recursive procedure:
+
+```
+(define ones (cons-stream 1 ones))
+```
+`ones` is a pair whose car is 1 and whose cdr is a promise to evaluate ones. Evaluating the cdr gives us again a 1 and a promise to evaluate ones, and so on.
+
+Together with `add-streams`, we can define `integers` as:
+
+```
+(define integers (cons-stream 1 (add-streams ones integers)))
+```
+
+This defines integers to be a stream whose first element is 1 and the rest of which is the sum of ones and integers.
+
+### Streams vs Objects
+
+> The stream approach can be illuminating because it allows us to build systems with different module boundaries than systems organized around assignment to state variables. For example, we can think of an entire time series (or signal) as a focus of interest, rather than the values of the state variables at individual moments. This makes it convenient to combine and compare components of state from different moments.
+
+Modeling with streams is not as intuitive as modeling with objects, largely because the latter matches the perception of interacting with a world of which we are part.
+
+Delayed evaluation and assignment don't mix well. As footnote #59 states,
+
+> Part of the power of stream processing is that it lets us ignore the order in which events actually happen in our programs. Unfortunately, this is precisely what we cannot afford to do in the presence of assignment, which forces us to be concerned with time and change.
+
+
+

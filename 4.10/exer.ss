@@ -158,18 +158,18 @@
 (define (assignment-variable exp) (cadr exp))
 (define (assignment-value exp) (caddr exp))
 
-;;; (define <var> <value>) or (define (<var> <param 1> ... <param n>) <body>)
+;;; (define <var> <value>) or (define (<var 1> <param 1> ... <param n>) <body>)
 (define (definition? exp)
-  (tagged-list? exp 'define))
+  (or
+   (tagged-list? exp 'defun)
+   (tagged-list? exp 'defvar)))
 (define (definition-variable exp)
-  (if (symbol? (cadr exp))
-      (cadr exp)
-      (caadr exp)))
+  (cadr exp))
 (define (definition-value exp)
-  (if (symbol? (cadr exp))
+  (if (tagged-list? exp 'defvar)
       (caddr exp)
-      (make-lambda (cdadr exp)   ; formal parameters
-                   (cddr exp)))) ; body
+      (make-lambda (caddr exp)   ; formal parameters
+                   (cdddr exp)))) ; body
 
 (define (lambda? exp) (tagged-list? exp 'lambda))
 (define (lambda-parameters exp) (cadr exp))
@@ -279,7 +279,7 @@
         (let ((name (let-name exp)))         ;named let
           (sequence->exp
            (list
-            (list 'define (cons name variables)
+            (list 'defun (cons name variables)
                   (car body))           ; !! <BODY> is ((if ...))
             (cons name initial-vals))))
         (cons                           ;normal let
@@ -308,7 +308,7 @@
     (cadr exp))
   (sequence->exp
    (list
-    (list 'define '(iter)
+    (list 'defun 'iter '()
           (while-body exp)
           (make-if (while-pred exp)
                    '(iter)
@@ -507,11 +507,11 @@
 
 ;;; named let, exer 4.8
 (eval
- '(define (fib n)
+ '(defun fib (n)
    (fib-iter 1 0 n))
  env)
 (eval
- '(define (fib-iter a b count)
+ '(defun fib-iter (a b count)
   (if (= count 0)
       b
       (fib-iter (+ a b) a (- count 1))))
@@ -523,7 +523,7 @@
  5)
 ;;; --------------------
 (eval
- '(define (fib2 n)
+ '(defun fib2 (n)
    (let fib-iter ((a 1)
                   (b 0)
                   (count n))
@@ -590,7 +590,7 @@
 ;;     'false)
 
 (eval
- '(define (fib n)
+ '(defun fib (n)
     (let ((a 1)
           (prev-a 1)
           (b 0)
@@ -609,4 +609,20 @@
  '(fib 5)
  env)
  5)
+
+;;; exer 4.10
+
+;;; use (defvar var val) to define a variable
+;;; use (defun var (param1 .. paramn) <body>) to define a function
+;;; the only functions to be changed are
+;;; `definition?, definition-variable and definition-value`
+(eval
+ '(defvar a 3)
+ env)
+(check-equal?
+ (eval
+ '(* a a)
+ env)
+ 9)
+
 

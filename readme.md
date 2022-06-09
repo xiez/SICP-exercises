@@ -605,4 +605,114 @@ Delayed evaluation and assignment don't mix well. As footnote #59 states,
 > Part of the power of stream processing is that it lets us ignore the order in which events actually happen in our programs. Unfortunately, this is precisely what we cannot afford to do in the presence of assignment, which forces us to be concerned with time and change.
 
 
+## 4.1 The Metacircular Evaluator
+
+In this section, we are using Lisp to construct an evaluator that can evaluate Lisp program, this is called `Meta-circurlar Evaluator`.
+
+The environment model in section 3.2 has two basic parts:
+
+1. To evaluate a combination (a compound expression other than a special form), evaluate the subexpressions and then apply the value of the operator subexpression to the values of the operand subexpressions.
+
+2. To apply a compound procedure to a set of arguments, evaluate the body of the procedure in a new environment. To construct this environment, extend the environment part of the procedure object by a frame in which the formal parameters of the procedure are bound to the arguments to which the procedure is applied.
+
+The metacircular evaluator is essentially a Scheme formulation of the environment model of evaluation.
+
+Two critical procedures in the evaluator are `eval` and `apply`.
+
+### Eval
+
+`eval` takes as arguments an expression and an environment. It classifies the expression into three kinds:
+
+1. primitive expressions
+
+    - self-evaluating expressions, the only self-evaluating items are numbers and strings.
+
+    - variables which values will be found in the environment, e.g. `a`, `f`
+
+2. special forms
+
+    - quote, e.g. `(quote a)`
+
+    - assignment, e.g. `(set! <variable> <value>)`
+
+    - if, e.g `(if <predicate> <consequent> <alternative>)`
+
+    - lambda, e.g `(lambda (<args>) <BODY>)`
+
+    - begin, e.g `(begin <exp1> <exp2> ... <expN>)`
+
+    - cond, e.g `(cond (<predicate1> <exp1>) ... (<predicateN> <expN>) (else <exp>))`
+
+3. combinations (compound expressions), e.g. `(+ 1 1) (fib 3)`
+
+    recursively call `eval` on operator and operands, the resulting procedure and arguments are passed to `apply`.
+
+
+### Apply
+
+`apply` takes two arguments, a procedure and a list of arguments. It classifies the procedure into two kinds:
+
+1. primitive procedures, e.g. `+ - * / =`
+
+    just call the underlying Scheme procedures.
+
+2. compound procedures, e.g. `fib square`
+
+    sequentially call `eval` on the expressions that make up the procedure body.
+
+`eval` and `apply` are mutual recursive, as the following picture shows:
+
+![eval-apply cycle](https://mitpress.mit.edu/sites/default/files/sicp/full-text/book/ch4-Z-G-1.gif)
+
+
+## 4.2 Variations on a Scheme -- Lazy Evaluation
+
+The value of metaevaluator is that we can experiment with alternative choices in language design simply by modifying the evaluator.
+
+The default evaluation order of Scheme is **Applicative Order** which means evaluating all the arguments when a procedure is applied.
+
+Another evaluation order is **Normal Order** which means delay evaluation of procedure arguments until the actual argument values are needed.
+
+Delaying evaluation of procedure arguments until the last possible moment (e.g., until they are required by a primitive operation) is called **lazy evaluation**.
+
+### Thunk
+
+Thunk is past tense of "think" in informal occations as stated in this [Quora thread](https://www.quora.com/Is-thunk-the-correct-past-tense-for-think?force_dialog=1).
+
+> The word thunk was invented by an informal working group that was discussing the implementation of call-by-name in Algol 60. They observed that most of the analysis of ("thinking about") the expression could be done at compile time; thus, at run time, the expression would already have been "thunk" about (Ingerman et al. 1960).
+
+- create a thunk by `delay-it`
+
+```
+(define (delay-it exp env)
+  (list 'thunk exp env))
+
+(define (thunk? obj)
+  (tagged-list? obj 'thunk))
+
+(define (thunk-exp thunk) (cadr thunk))
+
+(define (thunk-env thunk) (caddr thunk))
+```
+
+- evaluate a thunk by `force-it`
+
+```
+(define (actual-value exp env)
+  (force-it (eval exp env)))
+
+(define (force-it obj)
+  (if (thunk? obj)
+      (actual-value (thunk-exp obj) (thunk-env obj))
+      obj))
+```
+
+**Interaction between lazy evaluation and side effects can be very confusing.**
+
+### Streams as Lazy List
+
+Using lazy evaluation, we can get rid of `cons-stream` and `stream-` related operations in section 3.5, the arguemnts of `(cons a b)` are delay evaluated until they are actually used by some primitive procedures. Thus, all lists are delayed.
+
+And further more, the car of a cons is also delay evaluted, this feature permits us to create delayed versions of more general kinds of list structures, not just sequences. Such as lazy trees which is discussed in [the paper](http://www.cse.chalmers.se/~rjmh/Papers/whyfp.pdf) by Hughes. Lazy trees can represent all possible positions a game can reach -- and this is used to evaluate potential moves in games like chess.
+
 

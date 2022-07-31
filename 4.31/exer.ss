@@ -1,4 +1,3 @@
-;;; evaluator with lazy evaluation in section 4.2
 #lang sicp
 (#%require rackunit)
 
@@ -22,6 +21,9 @@
 ;;; environment is made of a list of frames
 ;;; env selector & mutator --------------------
 (define (lookup-variable-value var env)
+  (display "lookup-var:")
+  (display var)
+  (newline)
   (define (env-loop env)
     (define (scan vars vals)
       (cond ((null? vars)
@@ -455,17 +457,72 @@
 
 ;;; apply ------------------------------
 (define (list-of-arg-values exps env)
+  ;; evaluate all the arguments
   (if (no-operands? exps)
       '()
       (cons (actual-value (first-operand exps) env)
             (list-of-arg-values (rest-operands exps)
                                 env))))
 (define (list-of-delayed-args exps env)
+  ;; delay all the arguments
   (if (no-operands? exps)
       '()
       (cons (delay-it (first-operand exps) env)
             (list-of-delayed-args (rest-operands exps)
                                   env))))
+(define (list-of-delayed-args-or-values exps env)
+  ;; delay the arguments with `(b lazy)`
+  ;; evaluate the rest arguments
+  (define (lazy? exp)
+    (if (pair? exp)
+        #true
+        #false))
+  (define (delay-or-eval exp env)
+    (if (lazy? exp)
+        (delay-it exp env)
+        (actual-value exp env)))
+  (if (no-operands? exps)
+      '()
+      (cons (delay-or-eval (first-operand exps) env)
+            (list-of-delayed-args-or-values
+             (rest-operands exps)
+             env))))
+
+(define (extend-envrironment-with-lazy vars vals base-env)
+  ;; transform arg to a thunk if var is `(a lazy)`
+  ;; otherwise ...
+  (define (lazy? exp)
+    (if (pair? exp)
+        #true
+        #false))
+  (define (loop vars vals)
+    (if (null? vars)
+        '()
+        (let ((var (car vars))
+              (val (car vals)))
+          (if (lazy? var)
+              (begin
+                (set-car! vars (car var))
+                (set-car! vals (delay-it val base-env))
+                (loop (cdr vars) (cdr vals)))
+              (begin
+                (set-car! vals (actual-value val base-env))
+                (loop (cdr vars) (cdr vals)))))))
+
+  (loop vars vals)
+  (display "vars: ")
+  (display vars)
+  (newline)
+  (display "vals: ")
+  (display vals)
+  (newline)
+  (extend-environment vars vals base-env)
+
+  (display "env after extend: ")
+  (display base-env)
+  (newline)
+  )
+
 
 (define (primitive-procedure? proc)
   (not (compound-procedure? proc)))                                 ;TODO
@@ -487,9 +544,9 @@
         ((compound-procedure? procedure)
          (eval-sequence
           (procedure-body procedure)
-          (extend-environment
+          (extend-envrironment-with-lazy
            (procedure-parameters procedure)
-           (list-of-delayed-args arguments env)
+           arguments
            (procedure-environment procedure))
           ))
         (else
@@ -499,8 +556,8 @@
 ;;; TEST ----------------------------------------
 (define env
   (extend-environment
-   (list '+ '- '* '= 'not 'display 'true 'false 'assoc 'cadr '>)
-   (list + - * = not display true false assoc cadr >)
+   (list '+ '- '* '= 'not 'display 'true 'false 'assoc 'cadr '> '/)
+   (list + - * = not display true false assoc cadr > /)
    '()))
 
 ;;; self-evaluating
@@ -513,9 +570,9 @@
 (check-equal? (eval '(quote true)  env) 'true)
 (check-equal? (eval '(quote hello)  env) 'hello)
 
-;;; assignment
+;;; lazy evaluation
 (eval
- '(define (try a b)
+ '(define (try a (lazy b))
     (if (= a 0) 1 b)) env)
 
 (check-equal?
@@ -523,6 +580,18 @@
  '(try 0 (/ 1 0))
  env)
  1)
+
+(eval
+ '(define (f a)
+   (+ a 1))
+ env
+ )
+(eval
+ '(f 1)
+ env
+ )
+
+
 
 
 ;;; if
@@ -937,4 +1006,5 @@
  env
  )
 
-;;; exer 4.21 TODO
+;;; exer 4.31
+

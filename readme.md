@@ -4,9 +4,21 @@ MIT Version:
 
 https://mitpress.mit.edu/sites/default/files/sicp/full-text/book/book-Z-H-23.html#%_sec_3.4
 
+Online Version:
+
+https://sarabander.github.io/sicp/html/4_002e2.xhtml#g_t4_002e2
+
 SICP Interactive Version:
 
 https://xuanji.appspot.com/isicp/index.html
+
+Berkeley Python Version:
+
+https://composingprograms.com/
+
+Interactive Javascript Version:
+
+https://sourceacademy.org/sicpjs
 
 Racket SICP collections:
 

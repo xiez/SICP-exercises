@@ -1,0 +1,67 @@
+(define (row-attack? queens)
+  (not (distinct? (list q1 q2 q3 q4 q5 q6 q7 q8))))
+
+(define (cross-attack? queens)
+  ;; whether a queen at column i cross-attack queen at column i+1 .. N
+  (define (cross-attack-any? queen queens cross-val)
+    ;; a queen cross-attack another queen if the absolute value of two queen equals to
+    ;; a `cross-value`, which is 1, 2, ...
+    (cond ((null? queens) false)
+          ((= (abs (- queen (car queens))) cross-val) true)
+          (else (cross-attack-any? queen (cdr queens) (+ cross-val 1)))))
+  (cond ((null? queens) false)          ;no queen
+        ((null? (cdr queens)) false)    ;only one queen
+        ((cross-attack-any? ;whether current queen cross-attack any queens at rest columns
+          (car queens) (cdr queens) 1)
+         true)
+        (else (cross-attack? (cdr queens)))))
+
+(define (attack? queens)
+  (or (row-attack? queens)
+      (cross-attack? queens)))
+
+(define (eight-queens)
+  (let ((q1 (amp 1 2 3 4 5 6 7 8))      ;queen at column 1
+        (q2 (amp 1 2 3 4 5 6 7 8))      ;queen at column 2
+        (q3 (amp 1 2 3 4 5 6 7 8))
+        (q4 (amp 1 2 3 4 5 6 7 8))
+        (q5 (amp 1 2 3 4 5 6 7 8))
+        (q6 (amp 1 2 3 4 5 6 7 8))
+        (q7 (amp 1 2 3 4 5 6 7 8))
+        (q8 (amp 1 2 3 4 5 6 7 8)))
+    (require (not (attack? (list q1 q2 q3 q4 q5 q6 q7 q8))))
+    (list ('queen1 q1)
+          ('queen2 q2)
+          ('queen3 q3)
+          ('queen4 q4)
+          ('queen5 q5)
+          ('queen6 q6)
+          ('queen7 q7)
+          ('queen8 q8))
+    )
+  )
+
+(define (eight-queens-optimal)
+  (let ((q1 (amp 1 2 3 4 5 6 7 8)))
+    (let ((q2 (amp 1 2 3 4 5 6 7 8)))
+      (require (not (attack? (list q1 q2))))
+      (let ((q3 (amp 1 2 3 4 5 6 7 8)))
+        (require (not (attack? (list q1 q2 q3))))
+        (let ((q4 (amp 1 2 3 4 5 6 7 8)))
+          (require (not (attack? (list q1 q2 q3 q4))))
+          (let ((q5 (amp 1 2 3 4 5 6 7 8)))
+            (require (not (attack? (list q1 q2 q3 q4 q5))))
+            (let ((q6 (amp 1 2 3 4 5 6 7 8)))
+              (require (not (attack? (list q1 q2 q3 q4 q5 q6))))
+              (let ((q7 (amp 1 2 3 4 5 6 7 8)))
+                (require (not (attack? (list q1 q2 q3 q4 q5 q6 q7))))
+                (let ((q8 (amp 1 2 3 4 5 6 7 8)))
+                  (require (not (attack? (list q1 q2 q3 q4 q5 q6 q7 q8))))
+                  (list ('queen1 q1)
+                        ('queen2 q2)
+                        ('queen3 q3)
+                        ('queen4 q4)
+                        ('queen5 q5)
+                        ('queen6 q6)
+                        ('queen7 q7)
+                        ('queen8 q8)))))))))))

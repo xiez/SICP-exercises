@@ -14,6 +14,8 @@ https://xuanji.appspot.com/isicp/index.html
 
 Berkeley Python Version:
 
+https://inst.eecs.berkeley.edu/~cs61a/sp12/book/index.html
+
 https://composingprograms.com/
 
 Interactive Javascript Version:

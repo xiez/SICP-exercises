@@ -1,4 +1,4 @@
-(enumerate-interval 1 10)               ;(1 2 3 4 5 6 7 8)
+(enumerate-interval 1 10)               ;(1 2 3 4 5 6 7 8 9 10)
 
 (accumulate + 0 (enumerate-interval 1 10)) ;55
 (accumulate append '() '((1) (2)))
@@ -140,3 +140,19 @@
                    (adjoin-position new-row k rest-of-queens))
                  (enumerate-interval 1 board-size)))
  rest-of-queens)
+
+;;; show queens ----------------------------------------
+
+(require htdp/show-queen)
+(define (show-n-queen n)
+  (define (build-board n f)
+    (build-list n
+                (lambda (i) (build-list n (lambda (j) (f (add1 i) (add1 j)))))))
+  (show-queen
+   (let [(result (car (queens n)))]
+     (build-board n
+                  (λ (x y)
+                    (if (member (make-position x y) result)
+                        true
+                        false))))))
+

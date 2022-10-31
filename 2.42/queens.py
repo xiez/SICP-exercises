@@ -48,6 +48,6 @@ def queens(board_size):
     return queen_cols(board_size)
 
 
-for bd_size in [1, 2, 3, 4, 5, 8]:
+for bd_size in range(11):
     placements = queens(bd_size)
     print(f'board size: {bd_size}, sum of placements: {len(placements)}')

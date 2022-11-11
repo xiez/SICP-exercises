@@ -197,7 +197,9 @@
 
 ;;; 5.6
 
-;; in afterfib-n-1, restore and save continue can be removed, since continue will be assigned in next instruction
+;; in afterfib-n-1, restore and save continue can be removed, since continue
+;; is not changed between two instructions and will be assigned in next instruction
 ;; (restore continue)
-;; (...)
+;; (assign n ...)
 ;; (save continue)
+;; (assign continue ...)

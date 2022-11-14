@@ -1,4 +1,4 @@
-#lang scheme
+#lang sicp
 
 (define (make-machine register-names
                       ops 
@@ -26,6 +26,11 @@
                      REGISTER"
                     message))))
     dispatch))
+
+(define (get-contents reg)
+  (reg 'get))
+(define (set-contents! reg value)
+  ((reg 'set) value))
 
 ;;; stack
 (define (make-stack)
@@ -128,3 +133,125 @@
   ((machine 'get-register) reg-name))
 
 ;;; assembler
+
+;; (define controller-text
+;;   '(expt-loop
+;;     (test (op =) (reg n) (const 0))
+;;     (branch (label expt-base))
+;;     (save n)
+;;     (save continue)
+;;     (assign n (op -) (reg n) (cons 1))  ;n = n -1
+;;     (assign continue (label after-expt))
+;;     (goto (label expt-loop))
+;;     ;; expt-base
+;;     expt-base
+;;     (assign val (const 1))              ;val = 1
+;;     (goto (reg continue))
+;;     ;; after-expt
+;;     after-expt
+;;     (restore continue)
+;;     (restore n)
+;;     (assign val (op *) (reg b) (reg val)) ;val = b * (expt b (- n 1))
+;;     (goto (reg continue))
+;;     expt-done))
+
+;; (define insts
+;;   '(((test (op =) (reg n) (const 0)))
+;;   ((branch (label expt-base)))
+;;   ((save n))
+;;   ((save continue))
+;;   ((assign n (op -) (reg n) (cons 1)))
+;;   ((assign continue (label after-expt)))
+;;   ((goto (label expt-loop)))
+;;   ((assign val (const 1)))
+;;   ((goto (reg continue)))
+;;   ((restore continue))
+;;   ((restore n))
+;;   ((assign val (op *) (reg b) (reg val)))
+;;   ((goto (reg continue)))))
+
+;; (define labels
+;;   '((expt-loop
+;;      ((test (op =) (reg n) (const 0)))
+;;      ((branch (label expt-base)))
+;;      ((save n))
+;;      ((save continue))
+;;      ((assign n (op -) (reg n) (cons 1)))
+;;      ((assign continue (label after-expt)))
+;;      ((goto (label expt-loop)))
+;;      ((assign val (const 1)))
+;;      ((goto (reg continue)))
+;;      ((restore continue))
+;;      ((restore n))
+;;      ((assign val (op *) (reg b) (reg val)))
+;;      ((goto (reg continue))))
+;;     (expt-base
+;;      ((assign val (const 1)))
+;;      ((goto (reg continue)))
+;;      ((restore continue))
+;;      ((restore n))
+;;      ((assign val (op *) (reg b) (reg val)))
+;;      ((goto (reg continue))))
+;;     (after-expt ((restore continue)) ((restore n)) ((assign val (op *) (reg b) (reg val))) ((goto (reg continue))))
+;;     (expt-done)))
+
+
+(define (assemble controller-text machine)
+  (extract-labels controller-text
+                  (lambda (insts labels)
+                    (update-insts! insts labels machine)
+                    insts)))
+
+(define (extract-labels text receive)
+  (if (null? text)
+      (receive '() '())
+      (extract-labels 
+       (cdr text)
+       (lambda (insts labels)
+         (let ((next-inst (car text)))
+           (if (symbol? next-inst)
+               (if (assoc next-inst labels)
+                   (error "Duplicated label: ASSEMBLE" next-inst)
+                   (receive 
+                       insts
+                       (cons 
+                        (make-label-entry next-inst insts)
+                        labels)))
+               (receive
+                   (cons (make-instruction next-inst) insts)
+                   labels)))))))
+
+(define (make-label-entry label-name insts)
+  (cons label-name insts))
+
+(define (make-instruction text)
+  (cons text '()))
+(define (set-instruction-execution-proc! inst proc)
+  (set-cdr! inst proc))
+(define (instruction-text inst)
+  (car inst))
+(define (instruction-execution-proc inst)
+  (cadr inst))
+
+(define (update-insts! insts labels machine)
+  (let ((pc (get-register machine 'pc))
+        (flag (get-register machine 'flag))
+        (stack (machine 'stack))
+        (ops (machine 'operations)))
+    (for-each
+     (lambda (inst)
+       (set-instruction-execution-proc!
+        inst
+        (make-execution-procedure
+         (instruction-text inst) 
+         labels
+         machine
+         pc
+         flag
+         stack
+         ops)))
+     insts)))
+
+
+(define (make-execution-procedure . args)
+  (lambda () 'todo))

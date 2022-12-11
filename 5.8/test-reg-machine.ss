@@ -10,6 +10,7 @@
      (assign product (op *) (reg b) (reg product)) ;product = product * b
      (goto (label expt-loop))
      expt-done)))
+(expt1 'start)
 
 (get-register-contents expt1 'pc)
 (expt1 'operations)
@@ -24,3 +25,4 @@
     (goto (label expt-loop))
     expt-done))
 (assemble controller-text expt1)
+

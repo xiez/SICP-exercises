@@ -231,7 +231,7 @@
 (define (instruction-text inst)
   (car inst))
 (define (instruction-execution-proc inst)
-  (cadr inst))
+  (cdr inst))
 
 (define (update-insts! insts labels machine)
   (let ((pc (get-register machine 'pc))
@@ -253,5 +253,96 @@
      insts)))
 
 
-(define (make-execution-procedure . args)
-  (lambda () 'todo))
+;;;
+;;; make different (assign/goto/branch...) instruction procedure
+(define (make-execution-procedure inst-text labels machine pc flag stack ops)
+  ;; (set-contents! pc (cdr (get-contents pc)))
+  (cond ((eq? (car inst-text) 'assign)
+         (make-assign
+          inst-text machine labels ops pc))
+        (else
+         (error "Unknown instruction type: ASSEMBLE" inst-text))))
+
+;;; instruction ... -> λ
+;;; make assignment instruction procedure
+(define (make-assign inst machine labels ops pc)
+  (let ((target (get-register machine (assign-reg-name inst)))
+        (value-exp (assign-value-exp inst)))
+    (let ((value-proc
+           (if (operation-exp? value-exp)
+               (make-operation-exp
+                value-exp 
+                machine
+                labels
+                operations)
+               (make-primitive-exp
+                (car value-exp)
+                machine
+                labels))))
+      (lambda ()                      ; execution procedure for assign
+        (set-contents! target (value-proc))
+        (advance-pc pc)))))
+
+(define (assign-reg-name assign-instruction)
+  (cadr assign-instruction))
+(define (assign-value-exp assign-instruction)
+  (cddr assign-instruction))
+
+(define (advance-pc pc)
+  (set-contents! pc (cdr (get-contents pc))))
+
+
+;;; Primitive assign
+;;;assign-inst: (assign val (const 1))
+;;;assign-reg-name: val
+;;;assign-value-exp: ((const 1))
+;;; or
+;;;assign-inst: (assign val (reg a))
+;;;assign-value-exp: ((reg a))
+(define (make-primitive-exp exp machine labels)
+  (cond ((constant-exp? exp)            ;input: (const 1)
+         (let ((c (const-exp-value exp))) ;ret: λ
+           (lambda () c)))
+        ((register-exp? exp)            ;input: (reg a)
+         (let ((r (get-register machine (register-exp-reg exp))))
+           (lambda () (get-contents r)))) ;ret: λ
+        (else (error "Unkown expression type: ASSEMBLE" exp))))
+(define (constant-exp? exp)
+  (tagged-list? exp 'const))
+(define (const-exp-value exp)
+  (cadr exp))
+(define (register-exp? exp)
+  (tagged-list? exp 'reg))
+(define (register-exp-reg exp)
+  (cadr exp))
+
+;;; Operational assign
+;;;assign-inst: (assign val (op *) (reg b) (reg val))
+;;;assign-reg-name: val
+;;;assign-value-exp: ((op *) (reg b) (reg val))
+(define (operation-exp? value-exp)
+  (and (pair? value-exp)
+       (tagged-list? (car value-exp) 'op)))
+(define (operation-exp-op operation-exp) ;input: ((op *) (reg b) (reg val))
+  (cadr (car operation-exp)))           ;ret: '*
+(define (operation-exp-operands operation-exp) ;input: ((op *) (reg b) (reg val))
+  (cdr operation-exp))                  ;ret: ((reg b) (reg val))
+
+(define (make-operation-exp exp machine labels operations)
+  (let ((op (lookup-prim (operation-exp-op exp) operations))
+        (aprocs
+         (map
+          (lambda (e) (make-primitive-exp e machine labels))
+          (operation-exp-operands exp))))
+    (lambda () (apply op (map (lambda (p) (p)) aprocs)))))
+
+
+;;; op-symbol (listof (op-symbol λ)) -> λ
+;;; lookup primitive operation name in operation table
+(define (lookup-prim op operations)
+  (cond ((null? operations)
+         (error "Unknown operation: ASSEMBLE" op))
+        ((eq? op (caar operations))
+         (cdar operations))
+        (else
+         (lookup-prim op (cdr operations)))))

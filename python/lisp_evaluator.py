@@ -1,4 +1,5 @@
 # A Lisp evaluator implemented in Python
+import operator as op
 from pprint import pprint
 
 
@@ -10,14 +11,18 @@ def validate_parenthese(exp):
     # TODO
     return True
 
-def is_number(exp):
+def is_number_string(exp):
     try:
-        if isinstance(int(exp), int) or isinstance(float(exp), float):
-            return True
+        int(exp)
+        return True
     except:
-        return False
+        try:
+            float(exp)
+            return True
+        except:
+            return False
 
-def is_string(exp):
+def is_quote_string(exp):
     return True if exp[0] == '"' else False
 
 
@@ -90,13 +95,15 @@ def parse(line):
 
 # eval & apply --------------------
 def eval_(exp, env):
-    print(f'eval_ {exp}')
+    # print(f'eval_ {exp}, {env}')
     if is_self_evaluating(exp):  # 42, 3.14, "hello"
         return self_evaluating(exp)
     elif is_variable(exp):      # foo + - * /
         return lookup_variable_value(exp, env)
     # elif is_quote(exp):
     #     return get_quote_text(exp)
+    elif is_if(exp):
+        return eval_if(exp, env)
     elif is_lambda(exp):
         return make_compound_procedure(
             lambda_parameters(exp),
@@ -104,7 +111,6 @@ def eval_(exp, env):
             env,
         )
     elif is_definination(exp):
-        # print(f'is define {exp}')
         return eval_defination(exp, env)
     elif is_combination(exp):   # ['+', 1, 1]
         return apply_(
@@ -130,16 +136,22 @@ def apply_(proc, args):
         raise Exception(f"Unknown procedure type -- APPLY {proc}")
 
 def is_self_evaluating(exp):
-    return True if is_number(exp) or is_string(exp) else False
+    if isinstance(exp, int) or isinstance(exp, float):
+        return exp
+
+    return True if is_number_string(exp) or \
+        is_quote_string(exp) else False
 
 def self_evaluating(exp):
-    try:
-        return int(exp)
-    except ValueError:
+    if isinstance(exp, int) or isinstance(exp, float):
+        return exp
+    if is_number_string(exp):
         try:
+            return int(exp)
+        except:
             return float(exp)
-        except ValueError:
-            return exp
+    elif is_quote_string(exp):
+        return exp[1:-1]
 
 def is_variable(exp):
     return not is_pair(exp)
@@ -150,7 +162,7 @@ def set_variable(var, value, env):
 def lookup_variable_value(var, env):
     for a_frame in env:
         val = a_frame.get(var)
-        if val:
+        if val is not None:
             return val
     raise Exception(f"{var} is not defined in the env")
 
@@ -158,20 +170,23 @@ def is_lambda(exp):
     return exp[0] == 'lambda'
 
 def make_lambda(params, body):
+    # a lambda expression contains prarms and body
     # params: ["arg1", ...] or []
-    # body: ["a", ["+", 1, 2], ...]
+    # body contains one or multiple exps
+    # e.g: ["a", ["+", 1, 2], ...]
     if not body:
         raise Exception("body is empty -- make_lambda")
     lambda_exp = ['lambda']
     lambda_exp.append(params)
-    lambda_exp.append(body)
+    for exp in body:
+        lambda_exp.append(exp)
     return lambda_exp
 
 def lambda_parameters(exp):
     return exp[1]
 
 def lambda_body(exp):
-    return exp[2]
+    return exp[2:]
 
 def is_compound_procedure(exp):
     return exp[0] == 'procedure'
@@ -195,26 +210,26 @@ def procedure_environment(exp):
 def is_definination(exp):
     return exp[0] == 'define'
 
+def defination_variable(exp):
+    if is_pair(exp[1]):
+        return exp[1][0]
+    else:
+        return exp[1]
+
+def defination_value(exp):
+    if is_pair(exp[1]):
+        params = exp[1][1:]
+        body = exp[2:]
+        return make_lambda(params, body)
+    else:
+        return exp[2]
+
 def eval_defination(exp, env):
     # (define a 42)
     # (define (f arg1 arg2) body)
-    def defination_variable():
-        if is_pair(exp[1]):
-            return exp[1][0]
-        else:
-            return exp[1]
-
-    def defination_value():
-        if is_pair(exp[1]):
-            params = exp[1][1:]
-            body = exp[2:]
-            return make_lambda(params, body)
-        else:
-            return exp[2]
-
     set_variable(
-        defination_variable(),
-        eval_(defination_value(), env),
+        defination_variable(exp),
+        eval_(defination_value(exp), env),
         env
     )
 
@@ -231,6 +246,24 @@ def get_quote_text(exp):
     assert is_quote(exp), exp
     splits = exp.split(' ')
     return trim_parenthese(''.join(splits[1:]))
+
+def is_if(exp):
+    return exp[0] == 'if'
+
+def eval_if(exp, env):
+    if eval_(if_predicate(exp), env) is True:
+        return eval_(if_consequent(exp), env)
+    else:
+        return eval_(if_alternative(exp), env)
+
+def if_predicate(exp):
+    return exp[1]
+
+def if_consequent(exp):
+    return exp[2]
+
+def if_alternative(exp):
+    return exp[3]
 
 def is_combination(exp):
     # print(f'is_combination: {exp}')
@@ -255,6 +288,7 @@ def eval_sequence(exps, env):
     # use last value of exps as the return value
     ret = None
     for exp in exps:
+        assert isinstance(exp, list)
         ret = eval_(exp, env)
     return ret
 
@@ -262,123 +296,18 @@ def extend_environment(params, vals, env=[]):
     assert len(params) == len(vals)
     assert isinstance(env, list)
 
-    new_env = {}
-    for idx, param in enumerate(params):
-        new_env[param] = vals[idx]
+    new_env = dict(zip(params, vals))
     return [new_env] + env
 
-# TEST --------------------
 
 ENV = extend_environment(
-    ['+', '-', '*', '/', '=', 'display'],
-    [lambda x, y: x + y,
-     lambda x, y: x - y,
-     lambda x, y: x * y,
-     lambda x, y: x / y,
-     lambda x, y: x == y,
-     print,
-    ], []
+    ['+', '-', '*', '/', '=', '<', '>', 'display', ],
+    [op.add,
+     op.sub,
+     op.mul,
+     op.truediv,
+     op.eq,
+     op.lt,
+     op.gt,
+     print]
 )
-
-# assert eval_(
-#     '''
-#     1
-#     ''',
-#     ENV
-# ) == 1
-
-
-# assert eval_(
-#     '''
-#     "1"
-#     ''',
-#     ENV
-# ) == '"1"'
-
-# assert eval_(
-#     '''
-#     "hello world!"
-#     ''',
-#     ENV
-# ) == '"hello world!"'
-
-# assert eval_(
-#     '''
-#     a
-#     ''',
-#     ENV
-# ) == 42
-
-# assert eval_(
-#     '''
-#     (quote a)
-#     ''',
-#     ENV
-# ) == 'a'
-
-print(eval_(parse(
-    '''
-    (+ 1 1)
-    '''
-), ENV))
-
-print(eval_(parse(
-    '''
-    (* (+ 1 1) (- 3 1))
-    '''
-), ENV))
-
-# print(eval_(parse(
-#     '''
-#     (+ (+ 1 1) 1 2)
-#     '''
-# ), ENV))
-
-eval_(parse(
-    '''
-    (display "hello-world!")
-    '''
-), ENV)
-
-eval_(parse('''
-(define a 42)
-'''), ENV)
-
-print(eval_(parse('''
-(+ a 1)
-'''), ENV))
-
-eval_(parse('''
-(define a 10)
-'''), ENV)
-
-print(eval_(parse('''
-(+ a 1)
-'''), ENV))
-
-eval_(parse('''
-(define (f b)
-(+ b 1)
-)
-'''), ENV)
-
-# print(eval_(parse('''
-# f
-# '''), ENV))
-
-print('(f 10) -> ', eval_(parse('''
-(f 10)
-'''), ENV))
-
-
-eval_(parse('''
-(define (g b)
-(define (h)
- (+ 1 b))
-(h)
-)
-'''), ENV)
-
-print('(g 20) -> ', eval_(parse('''
-(g 20)
-'''), ENV))

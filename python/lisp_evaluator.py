@@ -98,7 +98,7 @@ def eval_(exp, env):
     # print(f'eval_ {exp}, {env}')
     if is_self_evaluating(exp):  # 42, 3.14, "hello"
         return self_evaluating(exp)
-    elif is_variable(exp):      # foo + - * /
+    elif is_variable(exp):      # foo + - * / null
         return lookup_variable_value(exp, env)
     # elif is_quote(exp):
     #     return get_quote_text(exp)
@@ -300,8 +300,13 @@ def extend_environment(params, vals, env=[]):
     return [new_env] + env
 
 
+def list_impl(*args):
+    if not args:
+        return None
+    return (args[0], list_impl(*args[1:]))
+
 ENV = extend_environment(
-    ['+', '-', '*', '/', '=', '<', '>', 'display', ],
+    ['+', '-', '*', '/', '=', '<', '>', 'display', 'cons', 'car', 'cdr', 'null', 'null?', 'list'],
     [op.add,
      op.sub,
      op.mul,
@@ -309,5 +314,12 @@ ENV = extend_environment(
      op.eq,
      op.lt,
      op.gt,
-     print]
+     print,
+     lambda x, y: (x, y),
+     lambda x: x[0],
+     lambda x: x[1],
+     None,
+     lambda x: False if x else True,
+     list_impl,
+    ]
 )

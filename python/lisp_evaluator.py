@@ -137,7 +137,7 @@ def apply_(proc, args):
 
 def is_self_evaluating(exp):
     if isinstance(exp, int) or isinstance(exp, float):
-        return exp
+        return True
 
     return True if is_number_string(exp) or \
         is_quote_string(exp) else False
@@ -161,9 +161,9 @@ def set_variable(var, value, env):
 
 def lookup_variable_value(var, env):
     for a_frame in env:
-        val = a_frame.get(var)
-        if val is not None:
-            return val
+        if var in a_frame:
+            return a_frame[var]
+    print(env)
     raise Exception(f"{var} is not defined in the env")
 
 def is_lambda(exp):
@@ -306,7 +306,7 @@ def list_impl(*args):
     return (args[0], list_impl(*args[1:]))
 
 ENV = extend_environment(
-    ['+', '-', '*', '/', '=', '<', '>', 'display', 'cons', 'car', 'cdr', 'null', 'null?', 'list'],
+    ['+', '-', '*', '/', '=', '<', '>', 'display', 'cons', 'car', 'cdr', 'null', 'null?', 'true', 'false', 'list', 'abs'],
     [op.add,
      op.sub,
      op.mul,
@@ -320,6 +320,9 @@ ENV = extend_environment(
      lambda x: x[1],
      None,
      lambda x: False if x else True,
+     True,
+     False,
      list_impl,
+     abs,
     ]
 )

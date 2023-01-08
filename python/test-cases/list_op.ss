@@ -9,6 +9,11 @@
  (cdr lst)
  (list 2 3))
 
+(=
+ null
+ (cdr
+  (cdr (cdr lst))))
+
 (define (append lst1 lst2)
   (if (null? lst1)
       lst2
@@ -16,9 +21,9 @@
        (car lst1)
        (append (cdr lst1) lst2))))
 
-;; (display
-;;  (append
-;;   (list 1 2 3)
-;;   (list 4 5 6))
-;; )
+(=
+ (append
+  (list 1 2 3)
+  (list 4 5 6))
+ (list 1 2 3 4 5 6))
 

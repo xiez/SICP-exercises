@@ -19,3 +19,13 @@
 (=
  (g 20)
  21)
+
+(define (foo a)
+  (define (bar x)
+    (+ x 1))
+  (bar a))
+(=
+ (foo 10)
+ 11
+ )
+

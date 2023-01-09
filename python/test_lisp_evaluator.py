@@ -17,7 +17,7 @@ def get_blocks(lines):
     for line in splits:
         if not line:
             continue
-        if line.startswith(';'):
+        if line.lstrip().startswith(';'):
             continue
         string = string + line
         if balanced_parentheses(string):

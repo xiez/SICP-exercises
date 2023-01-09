@@ -27,3 +27,8 @@
   (list 4 5 6))
  (list 1 2 3 4 5 6))
 
+(=
+ (cons 1 (cons 2 null))
+ (list 1 2)
+ )
+

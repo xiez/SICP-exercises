@@ -1,15 +1,12 @@
 # A Lisp evaluator implemented in Python
 import operator as op
-from pprint import pprint
 
+# import sys
+# sys.setrecursionlimit(12000)
 
 # utils --------------------
 def is_pair(exp):
     return True if isinstance(exp, list) else False
-
-def validate_parenthese(exp):
-    # TODO
-    return True
 
 def is_number_string(exp):
     try:
@@ -24,7 +21,6 @@ def is_number_string(exp):
 
 def is_quote_string(exp):
     return True if exp[0] == '"' else False
-
 
 # tokenize & parse --------------------
 def tokenize(lines):
@@ -95,7 +91,6 @@ def parse(line):
 
 # eval & apply --------------------
 def eval_(exp, env):
-    # print(f'eval_ {exp}, {env}')
     if is_self_evaluating(exp):  # 42, 3.14, "hello"
         return self_evaluating(exp)
     elif is_variable(exp):      # foo + - * / null
@@ -104,6 +99,8 @@ def eval_(exp, env):
     #     return get_quote_text(exp)
     elif is_if(exp):
         return eval_if(exp, env)
+    elif is_cond(exp):
+        return eval_if(cond_to_if(exp), env)
     elif is_lambda(exp):
         return make_compound_procedure(
             lambda_parameters(exp),
@@ -192,11 +189,7 @@ def is_compound_procedure(exp):
     return exp[0] == 'procedure'
 
 def make_compound_procedure(params, body, env):
-    proc_exp = ['procedure']
-    proc_exp.append(params)
-    proc_exp.append(body)
-    proc_exp.append(env)
-    return proc_exp
+    return ['procedure', params, body, env]
 
 def procedure_params(exp):
     return exp[1]
@@ -233,19 +226,18 @@ def eval_defination(exp, env):
         env
     )
 
-def is_quote(exp):
-    if not is_pair(exp):
-        return False
+# def is_quote(exp):
+#     if not is_pair(exp):
+#         return False
+#     splits = exp.split(' ')
+#     if len(splits) > 1 and splits[0] == '(quote':
+#         return True
+#     return False
 
-    splits = exp.split(' ')
-    if len(splits) > 1 and splits[0] == '(quote':
-        return True
-    return False
-
-def get_quote_text(exp):
-    assert is_quote(exp), exp
-    splits = exp.split(' ')
-    return trim_parenthese(''.join(splits[1:]))
+# def get_quote_text(exp):
+#     assert is_quote(exp), exp
+#     splits = exp.split(' ')
+#     return trim_parenthese(''.join(splits[1:]))
 
 def is_if(exp):
     return exp[0] == 'if'
@@ -264,6 +256,51 @@ def if_consequent(exp):
 
 def if_alternative(exp):
     return exp[3]
+
+def make_if(predicate, consequent, alternative):
+    return ['if', predicate, consequent, alternative]
+
+def is_cond(exp):
+    return exp[0] == 'cond'
+
+def cond_clauses(exp):
+    return exp[1:]
+
+def expand_clauses(clauses):
+    # a_clause:
+    # e.g. [['=', ['position-row', 'posn1'], ['position-row', 'posn2']], 'true']
+    # e.g. ['else', 'true']
+    assert len(clauses) > 1, clauses
+    assert clauses[-1][0] == 'else', clauses[-1]
+
+    def is_else_clause(clause):
+        return clause[0] == 'else'
+
+    def clause_predicate(clause):
+        return clause[0]
+
+    def clause_action(clause):
+        return clause[1]
+
+    def clauses_to_nested_if(clauses):
+        if not clauses:
+            return
+
+        a_clause = clauses[0]
+        if is_else_clause(a_clause):
+            return clause_action(a_clause)
+        else:
+            return make_if(
+                clause_predicate(a_clause),
+                clause_action(a_clause),
+                clauses_to_nested_if(clauses[1:])
+            )
+
+    return clauses_to_nested_if(clauses)
+
+def cond_to_if(exp):
+    ret = expand_clauses(cond_clauses(exp))
+    return ret
 
 def is_combination(exp):
     # print(f'is_combination: {exp}')
@@ -288,21 +325,19 @@ def eval_sequence(exps, env):
     # use last value of exps as the return value
     ret = None
     for exp in exps:
-        assert isinstance(exp, list)
+        assert isinstance(exp, list), exp
         ret = eval_(exp, env)
     return ret
 
 def extend_environment(params, vals, env=[]):
     assert len(params) == len(vals)
     assert isinstance(env, list)
-
     new_env = dict(zip(params, vals))
     return [new_env] + env
 
-
 def list_impl(*args):
-    if not args:
-        return None
+    if len(args) == 0:
+        return ()
     return (args[0], list_impl(*args[1:]))
 
 ENV = extend_environment(
@@ -318,7 +353,7 @@ ENV = extend_environment(
      lambda x, y: (x, y),
      lambda x: x[0],
      lambda x: x[1],
-     None,
+     (),
      lambda x: False if x else True,
      True,
      False,

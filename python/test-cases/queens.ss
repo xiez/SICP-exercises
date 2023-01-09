@@ -1,4 +1,10 @@
 ;;; helper functions
+(define (cadr x)
+  (car (cdr x)))
+
+(define (cddr x)
+  (cdr (cdr x)))
+
 (define (map proc lst)
   (if (null? lst)
       null
@@ -47,8 +53,6 @@
 
 (define (flatmap proc data)
   (accumulate append null (map proc data)))
-
-
 
 ;; ;;; ----------------------------------------
 
@@ -100,6 +104,8 @@
   (queen-cols board-size))
 
 (display
- (queens 8)
+ (queens 4)
  )
+
+;; (queens 8)
 

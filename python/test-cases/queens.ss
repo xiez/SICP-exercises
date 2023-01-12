@@ -5,18 +5,25 @@
 (define (cddr x)
   (cdr (cdr x)))
 
+(define (append lst1 lst2)
+  (if (null? lst1)
+      lst2
+      (cons
+       (car lst1)
+       (append (cdr lst1) lst2))))
+
+(define (length lst)
+  (if (null? lst)
+      0
+      (+ 1
+         (length (cdr lst)))))
+
 (define (map proc lst)
   (if (null? lst)
       null
       (cons
        (proc (car lst))
        (map proc (cdr lst)))))
-
-(=
- (map abs (list 1 -1 2 -3))
- (list 1 1 2 3)
- )
-
 
 (define (filter func lst)
   (if (null? lst)
@@ -27,19 +34,10 @@
            (filter func (cdr lst)))
           (filter func (cdr lst)))))
 
-(=
- (filter (lambda (x) (> x 1)) (list 1 2 3 4 5))
- (list 2 3 4 5))
-
 (define (enumerate-interval start end)
   (if (> start end) null
       (cons start
             (enumerate-interval (+ start 1) end))))
-
-(=
- (enumerate-interval 1 5)
- (list 1 2 3 4 5))
-
 
 (define (accumulate op init seq)
   (if (null? seq) init
@@ -47,14 +45,10 @@
        (car seq)
        (accumulate op init (cdr seq)))))
 
-(=
- 15
- (accumulate + 0 (enumerate-interval 1 5)))
-
 (define (flatmap proc data)
   (accumulate append null (map proc data)))
 
-;; ;;; ----------------------------------------
+;;; ----------------------------------------
 
 (define empty-board null)
 
@@ -103,9 +97,59 @@
           (queen-cols (- k 1))))))
   (queen-cols board-size))
 
-(display
- (queens 4)
+;; assertions
+(=
+ (map abs (list 1 -1 2 -3))
+ (list 1 1 2 3)
  )
 
-;; (queens 8)
+
+(=
+ (filter (lambda (x) (> x 1)) (list 1 2 3 4 5))
+ (list 2 3 4 5))
+
+
+(=
+ (enumerate-interval 1 5)
+ (list 1 2 3 4 5))
+
+
+(=
+ 15
+ (accumulate + 0 (enumerate-interval 1 5)))
+
+
+(=
+ (length (queens 1))
+ 1
+ )
+
+
+(=
+ (length (queens 2))
+ 0
+ )
+
+
+(=
+ (length (queens 3))
+ 0
+ )
+
+(=
+ (length (queens 4))
+ 2
+ )
+
+(=
+ (length (queens 5))
+ 10
+ )
+
+(=
+ (length (queens 6))
+ 4
+ )
+
+;; ;; (queens 8)
 

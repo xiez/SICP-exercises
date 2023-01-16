@@ -676,7 +676,7 @@ Two critical procedures in the evaluator are `eval` and `apply`.
 
 `eval` and `apply` are mutual recursive, as the following picture shows:
 
-![eval-apply cycle](https://mitpress.mit.edu/sites/default/files/sicp/full-text/book/ch4-Z-G-1.gif)
+![eval-apply cycle](https://sarabander.github.io/sicp/html/fig/chap4/Fig4.1a.std.svg)
 
 
 ## 4.2 Variations on a Scheme -- Lazy Evaluation

@@ -7,7 +7,7 @@ sys.setrecursionlimit(10**6)
 
 
 # utils --------------------
-def is_pair(exp):
+def is_list(exp):
     return True if isinstance(exp, list) else False
 
 
@@ -23,7 +23,7 @@ def is_number_string(exp):
             return False
 
 
-def is_quote_string(exp):
+def is_double_quote_string(exp):
     return True if exp[0] == '"' else False
 
 
@@ -100,6 +100,7 @@ def parse(line):
 
 # eval & apply --------------------
 def eval_(exp, env):
+    """Evaluate an expression within an environment."""
     if is_self_evaluating(exp):  # 42, 3.14, "hello"
         return self_evaluating(exp)
     elif is_variable(exp):  # foo + - * / null
@@ -128,6 +129,7 @@ def eval_(exp, env):
 
 
 def apply_(proc, args):
+    """Apply procedure with actual arguments."""
     if is_primitive_proc(proc):
         return run_python_apply(proc, args)
     elif is_compound_procedure(proc):
@@ -142,13 +144,18 @@ def apply_(proc, args):
 
 
 def is_self_evaluating(exp):
+    if is_list(exp):
+        return False
+
     if isinstance(exp, int) or isinstance(exp, float):
         return True
 
-    return True if is_number_string(exp) or is_quote_string(exp) else False
+    return True if is_number_string(exp) or is_double_quote_string(exp) else False
 
 
 def self_evaluating(exp):
+    assert not is_list(exp)
+
     if isinstance(exp, int) or isinstance(exp, float):
         return exp
     if is_number_string(exp):
@@ -156,12 +163,12 @@ def self_evaluating(exp):
             return int(exp)
         except:
             return float(exp)
-    elif is_quote_string(exp):
+    elif is_double_quote_string(exp):
         return exp[1:-1]
 
 
 def is_variable(exp):
-    return not is_pair(exp)
+    return not is_list(exp)
 
 
 def set_variable(var, value, env):
@@ -173,7 +180,7 @@ def lookup_variable_value(var, env):
         if var in a_frame:
             return a_frame[var]
     print(env)
-    raise Exception(f"{var} is not defined in the env")
+    raise Exception(f"Error: {var} is not defined in the ENV.")
 
 
 def is_lambda(exp):
@@ -207,6 +214,7 @@ def is_compound_procedure(exp):
 
 
 def make_compound_procedure(params, body, env):
+    """Make a procedure with formal arguments, body and environment."""
     return ["procedure", params, body, env]
 
 
@@ -227,14 +235,14 @@ def is_definination(exp):
 
 
 def defination_variable(exp):
-    if is_pair(exp[1]):
+    if is_list(exp[1]):
         return exp[1][0]
     else:
         return exp[1]
 
 
 def defination_value(exp):
-    if is_pair(exp[1]):
+    if is_list(exp[1]):
         params = exp[1][1:]
         body = exp[2:]
         return make_lambda(params, body)
@@ -249,7 +257,7 @@ def eval_defination(exp, env):
 
 
 # def is_quote(exp):
-#     if not is_pair(exp):
+#     if not is_list(exp):
 #         return False
 #     splits = exp.split(' ')
 #     if len(splits) > 1 and splits[0] == '(quote':
@@ -336,8 +344,7 @@ def cond_to_if(exp):
 
 
 def is_combination(exp):
-    # print(f'is_combination: {exp}')
-    return is_pair(exp)
+    return is_list(exp)
 
 
 def get_combination_operator(exp):
@@ -381,6 +388,8 @@ def list_impl(*args):
         return ()
     return (args[0], list_impl(*args[1:]))
 
+def print_env():
+    print(ENV)
 
 ENV = extend_environment(
     [
@@ -401,6 +410,7 @@ ENV = extend_environment(
         "false",
         "list",
         "abs",
+        "print-env",
     ],
     [
         op.add,
@@ -420,6 +430,7 @@ ENV = extend_environment(
         False,
         list_impl,
         abs,
+        print_env,
     ],
 )
 

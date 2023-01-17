@@ -131,7 +131,7 @@ def eval_(exp, env):
 def apply_(proc, args):
     """Apply procedure with actual arguments."""
     if is_primitive_proc(proc):
-        return run_python_apply(proc, args)
+        return apply_in_python(proc, args)
     elif is_compound_procedure(proc):
         return eval_sequence(
             procedure_body(proc),
@@ -363,7 +363,7 @@ def is_primitive_proc(proc):
     return callable(proc)
 
 
-def run_python_apply(proc, args):
+def apply_in_python(proc, args):
     return proc(*args)
 
 
@@ -377,7 +377,7 @@ def eval_sequence(exps, env):
 
 
 def extend_environment(params, vals, env=[]):
-    assert len(params) == len(vals)
+    assert len(params) == len(vals), (params, vals)
     assert isinstance(env, list)
     new_env = dict(zip(params, vals))
     return [new_env] + env

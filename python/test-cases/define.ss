@@ -20,12 +20,15 @@
  (g 20)
  21)
 
+;; internal defination
+;; and capture the free variable `a`
 (define (foo a)
   (define (bar x)
-    (+ x 1))
-  (bar a))
+    (+ x a))
+  (bar 42))
+
 (=
  (foo 10)
- 11
+ 52
  )
 

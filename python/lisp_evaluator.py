@@ -371,7 +371,6 @@ def eval_sequence(exps, env):
     # use last value of exps as the return value
     ret = None
     for exp in exps:
-        assert isinstance(exp, list), exp
         ret = eval_(exp, env)
     return ret
 

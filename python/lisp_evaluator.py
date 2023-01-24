@@ -41,7 +41,7 @@ def tokenize(lines):
     return ret
 
 
-def analyze(tokens):
+def _analyze(tokens):
     def expr():
         assert tokens.pop(0) == "("  # remove (
         op = operator()
@@ -93,7 +93,7 @@ def analyze_operand(token):
 
 def parse(line):
     try:
-        return analyze(tokenize(line))
+        return _analyze(tokenize(line))
     except:
         return tokenize(line)[0]
 
@@ -101,46 +101,63 @@ def parse(line):
 # eval & apply --------------------
 def eval_(exp, env):
     """Evaluate an expression within an environment."""
+    print(f'eval exp: {exp}')
+    return analyze(exp)(env)
+
+def analyze(exp):
     if is_self_evaluating(exp):  # 42, 3.14, "hello"
-        return self_evaluating(exp)
+        return analyze_self_evaluating(exp)
     elif is_variable(exp):  # foo + - * / null
-        return lookup_variable_value(exp, env)
+        return analyze_variable(exp)
     # elif is_quote(exp):
     #     return get_quote_text(exp)
     elif is_if(exp):
-        return eval_if(exp, env)
+        return analyze_if(exp)
     elif is_cond(exp):
-        return eval_if(cond_to_if(exp), env)
+        return analyze(cond_to_if(exp))
     elif is_lambda(exp):
-        return make_compound_procedure(
-            lambda_parameters(exp),
-            lambda_body(exp),
-            env,
-        )
+        return analyze_lambda(exp)
+        # return make_compound_procedure(
+        #     lambda_parameters(exp),
+        #     lambda_body(exp),
+        #     env,
+        # )
     elif is_definination(exp):
-        return eval_defination(exp, env)
+        return analyze_defination(exp)
     elif is_combination(exp):  # ['+', 1, 1]
-        return apply_(
-            eval_(get_combination_operator(exp), env),
-            list_of_values(get_combination_operands(exp), env),
-        )
+        return analyze_combination(exp)
+        # return apply_(
+        #     eval_(get_combination_operator(exp), env),
+        #     list_of_values(get_combination_operands(exp), env),
+        # )
     else:
         raise Exception(f"Unknown expression type -- EVAL {exp}")
 
-
-def apply_(proc, args):
-    """Apply procedure with actual arguments."""
+def execute_combination(proc, args):
     if is_primitive_proc(proc):
         return apply_in_python(proc, args)
     elif is_compound_procedure(proc):
-        return eval_sequence(
-            procedure_body(proc),
-            extend_environment(
-                procedure_params(proc), args, procedure_environment(proc)
-            ),
+        new_env = extend_environment(
+            procedure_params(proc), args, procedure_environment(proc)
         )
+        return procedure_body(proc)(new_env)
     else:
         raise Exception(f"Unknown procedure type -- APPLY {proc}")
+
+
+# def apply_(proc, args):
+#     """Apply procedure with actual arguments."""
+#     if is_primitive_proc(proc):
+#         return apply_in_python(proc, args)
+#     elif is_compound_procedure(proc):
+#         return eval_sequence(
+#             procedure_body(proc),
+#             extend_environment(
+#                 procedure_params(proc), args, procedure_environment(proc)
+#             ),
+#         )
+#     else:
+#         raise Exception(f"Unknown procedure type -- APPLY {proc}")
 
 
 def is_self_evaluating(exp):
@@ -153,19 +170,20 @@ def is_self_evaluating(exp):
     return True if is_number_string(exp) or is_double_quote_string(exp) else False
 
 
-def self_evaluating(exp):
+def analyze_self_evaluating(exp):
     assert not is_list(exp)
 
     if isinstance(exp, int) or isinstance(exp, float):
-        return exp
+        return lambda env: exp
     if is_number_string(exp):
         try:
-            return int(exp)
+            return lambda env: int(exp)
         except:
-            return float(exp)
+            return lambda env: float(exp)
     elif is_double_quote_string(exp):
-        return exp[1:-1]
-
+        return lambda env: exp[1:-1]
+    else:
+        assert False
 
 def is_variable(exp):
     return not is_list(exp)
@@ -173,6 +191,10 @@ def is_variable(exp):
 
 def set_variable(var, value, env):
     env[0][var] = value
+
+
+def analyze_variable(exp):
+    return lambda env: lookup_variable_value(exp, env)
 
 
 def lookup_variable_value(var, env):
@@ -208,6 +230,10 @@ def lambda_parameters(exp):
 def lambda_body(exp):
     return exp[2:]
 
+def analyze_lambda(exp):
+    params = lambda_parameters(exp)
+    bproc = analyze_sequence(lambda_body(exp))
+    return lambda env: make_compound_procedure(params, bproc, env)
 
 def is_compound_procedure(exp):
     return exp[0] == "procedure"
@@ -250,10 +276,15 @@ def defination_value(exp):
         return exp[2]
 
 
-def eval_defination(exp, env):
-    # (define a 42)
-    # (define (f arg1 arg2) body)
-    set_variable(defination_variable(exp), eval_(defination_value(exp), env), env)
+def analyze_defination(exp):
+    var = defination_variable(exp)
+    vproc = analyze(defination_value(exp))
+    return lambda env: set_variable(var, vproc(env), env)
+
+# def eval_defination(exp, env):
+#     # (define a 42)
+#     # (define (f arg1 arg2) body)
+#     set_variable(defination_variable(exp), eval_(defination_value(exp), env), env)
 
 
 # def is_quote(exp):
@@ -274,11 +305,17 @@ def is_if(exp):
     return exp[0] == "if"
 
 
-def eval_if(exp, env):
-    if eval_(if_predicate(exp), env) is True:
-        return eval_(if_consequent(exp), env)
-    else:
-        return eval_(if_alternative(exp), env)
+def analyze_if(exp):
+    pproc = analyze(if_predicate(exp))
+    cproc = analyze(if_consequent(exp))
+    aproc = analyze(if_alternative(exp))
+    return lambda env: cproc(env) if pproc(env) else aproc(env)
+
+# def eval_if(exp, env):
+#     if eval_(if_predicate(exp), env) is True:
+#         return eval_(if_consequent(exp), env)
+#     else:
+#         return eval_(if_alternative(exp), env)
 
 
 def if_predicate(exp):
@@ -346,6 +383,13 @@ def cond_to_if(exp):
 def is_combination(exp):
     return is_list(exp)
 
+def analyze_combination(exp):
+    fproc = analyze(get_combination_operator(exp))
+    aprocs = [analyze(o) for o in get_combination_operands(exp)]
+    return lambda env: execute_combination(
+        fproc(env),
+        [p(env) for p in aprocs],
+    )
 
 def get_combination_operator(exp):
     return exp[0]
@@ -355,8 +399,8 @@ def get_combination_operands(exp):
     return exp[1:]
 
 
-def list_of_values(operands, env):
-    return [eval_(o, env) for o in operands]
+# def list_of_values(operands, env):
+#     return [eval_(o, env) for o in operands]
 
 
 def is_primitive_proc(proc):
@@ -365,6 +409,13 @@ def is_primitive_proc(proc):
 
 def apply_in_python(proc, args):
     return proc(*args)
+
+
+def analyze_sequence(exps):
+    procs = [analyze(e) for e in exps]
+    if not procs:
+        raise Exception("Empty sequence: analyze")
+    return procs
 
 
 def eval_sequence(exps, env):

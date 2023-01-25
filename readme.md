@@ -730,3 +730,109 @@ Using lazy evaluation, we can get rid of `cons-stream` and `stream-` related ope
 And further more, the car of a cons is also delay evaluted, this feature permits us to create delayed versions of more general kinds of list structures, not just sequences. Such as lazy trees which is discussed in [the paper](http://www.cse.chalmers.se/~rjmh/Papers/whyfp.pdf) by Hughes. Lazy trees can represent all possible positions a game can reach -- and this is used to evaluate potential moves in games like chess.
 
 
+## 5.1 Designing with Register Machines
+
+In this section, we are designing a register matchine to gain more complete understanding of the underlying Lisp system.
+
+The metaevaluator in Chapter 4 leaves important questions unanswered. For instance, how the evaluation of subexpression manages to return a value to the expression that uses this value? How some recursive procedures generate iterative processes whereas others generate recursive processes?
+
+We will design our own machine language instead of focusing on the machine language of any particular computer. Here are the views of authors of the book,
+
+> Our descriptions of processes executed by register machines will look very much like “machine-language” programs for traditional computers. However, instead of focusing on the machine language of any particular computer, we will examine several Lisp procedures and design a specific register machine to execute each procedure. Thus, we will approach our task from the perspective of a hardware architect rather than that of a machine-language computer programmer.
+
+
+### Machine language
+
+Register: has a name and the buttons that control assignment to it.
+
+Register button: has a name and the source(a register, a cosntant, or an operation) of data that enters the reigster.
+
+Operation: has a name and inputs(registers or constants), operate directly only on constants and the contents of registers, not on the results of other operations.
+
+Controller of a matchine: as a sequence of instructions together with *labels* that identify *entry points* in the sequence.
+
+An instruction is one of the following:
+
+- The name of a data-path button to push to assign a value to a register. (is corresponds to a box in the controller diagram.)
+
+- A test instruction.
+
+- A conditional branch (branch instruction) to a location indicated by a controller label, based on the result of the previous test.
+
+- An unconditional branch (goto instruction) naming a controller label at which to continue execution.
+
+For example, The GCD procedure in Euclid's Algorithm:
+
+```
+(define (gcd a b)
+    (if (= b 0)
+        a
+        (gcd b (remainder a b))))
+```
+
+The data paths and controller for a GCD machine:
+
+![data paths](https://sarabander.github.io/sicp/html/fig/chap5/Fig5.1a.std.svg)
+
+![controller](https://sarabander.github.io/sicp/html/fig/chap5/Fig5.2.std.svg)
+
+
+The corresponding GCD machine is described as follows:
+
+```
+(controller
+    test-b
+        (test (op =) (reg b) (const 0))
+        (branch (label gcd-done))
+        (assign t (op rem) (reg a) (reg b))
+        (assign a (reg b))
+        (assign b (reg t))
+        (goto (label test-b))
+    gcd-done)
+```
+
+There are two kind of special operations: Read and Print.
+
+- Read: takes inputs from something outside of the machine and stores to a register.
+
+- Print: printing the contents of a register. `(perform (op print) (reg a))`
+
+### Using a Stack to Implement Recursion
+
+
+### Instruction Summary
+
+A controller instruction in our register-machine language has one of the following forms, where each ⟨ i n p u t i ⟩ is either (reg ⟨register-name⟩) or (const ⟨constant-value⟩). These instructions were introduced in 5.1.1: 
+
+```
+(assign ⟨register-name⟩ (reg ⟨register-name⟩))
+(assign ⟨register-name⟩ 
+        (const ⟨constant-value⟩))
+(assign ⟨register-name⟩ 
+        (op ⟨operation-name⟩) 
+        ⟨input₁⟩ … ⟨inputₙ⟩)
+(perform (op ⟨operation-name⟩) 
+         ⟨input₁⟩ 
+         … 
+         ⟨inputₙ⟩)
+(test (op ⟨operation-name⟩) 
+      ⟨input₁⟩ 
+      … 
+      ⟨inputₙ⟩)
+(branch (label ⟨label-name⟩))
+(goto (label ⟨label-name⟩))
+```
+
+The use of registers to hold labels was introduced in 5.1.3:
+
+```
+(assign ⟨register-name⟩ (label ⟨label-name⟩))
+(goto (reg ⟨register-name⟩))
+```
+
+Instructions to use the stack were introduced in 5.1.4:
+
+```
+(save ⟨register-name⟩)
+(restore ⟨register-name⟩)
+```

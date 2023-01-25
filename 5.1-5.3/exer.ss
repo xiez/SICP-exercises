@@ -70,22 +70,18 @@
 
 ;;; expand good-enough? and improve in terms of arithmetic operations
 (controller
-
- sqrt-loop
  (assign x (op read))
  (assign guess (const 1.0))
 
- good-enough?
+ sqrt-loop
  (assign a (op square) (reg guess))     ;square is considered as a primitive op
  (assign a (op -) (reg a) (reg x))
- (assign a (op abs) (reg a))            ;same as abs
- (test (op <) (reg a) (const 0.001))
+ (assign a (op abs) (reg a))
+ (test (op <) (reg a) (const 0.001))    ;if good-enough?, goto done with result in reg guess
  (branch (label done))
-
- ;; improve guess
- (assign a (op /) (reg x) (reg guess))
- (assign guess (op average) (reg guess) (reg a)) ;same as average
- (goto (label good-enough?))
+ (assign a (op /) (reg x) (reg guess))  ;otherwise, improve guess
+ (assign guess (op average) (reg guess) (reg a))
+ (goto (label sqrt-loop))
 
  done
  (perform (op print) (reg guess)))

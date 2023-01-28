@@ -1,0 +1,166 @@
+-------------------- without analyze --------------------
+>>> timeit.timeit(lambda: eval_(parse('(queens 7)'), ENV), number=1)
+2.929215725000006
+
+>>> cProfile.run("""eval_(parse('(queens 7)'), ENV)""")
+         18002073 function calls (15637164 primitive calls) in 6.504 seconds
+
+   Ordered by: standard name
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    6.504    6.504 <string>:1(<module>)
+  2524536    0.467    0.000    0.700    0.000 lisp_evaluator.py:10(is_list)
+1077617/1    1.416    0.000    6.503    6.503 lisp_evaluator.py:102(eval_)
+ 352088/1    0.299    0.000    6.503    6.503 lisp_evaluator.py:131(apply_)
+   636490    1.301    0.000    1.301    0.000 lisp_evaluator.py:14(is_number_string)
+  1077617    0.658    0.000    2.487    0.000 lisp_evaluator.py:146(is_self_evaluating)
+     4112    0.002    0.000    0.003    0.000 lisp_evaluator.py:156(self_evaluating)
+  1073505    0.272    0.000    0.573    0.000 lisp_evaluator.py:170(is_variable)
+     8607    0.002    0.000    0.002    0.000 lisp_evaluator.py:174(set_variable)
+   636490    0.177    0.000    0.177    0.000 lisp_evaluator.py:178(lookup_variable_value)
+   369828    0.051    0.000    0.051    0.000 lisp_evaluator.py:186(is_lambda)
+     8607    0.006    0.000    0.008    0.000 lisp_evaluator.py:190(make_lambda)
+     9133    0.001    0.000    0.001    0.000 lisp_evaluator.py:204(lambda_parameters)
+     9133    0.002    0.000    0.002    0.000 lisp_evaluator.py:208(lambda_body)
+   114113    0.019    0.000    0.019    0.000 lisp_evaluator.py:212(is_compound_procedure)
+     9133    0.002    0.000    0.002    0.000 lisp_evaluator.py:216(make_compound_procedure)
+   114113    0.015    0.000    0.015    0.000 lisp_evaluator.py:221(procedure_params)
+   114113    0.016    0.000    0.016    0.000 lisp_evaluator.py:225(procedure_body)
+   114113    0.014    0.000    0.014    0.000 lisp_evaluator.py:229(procedure_environment)
+   360695    0.048    0.000    0.048    0.000 lisp_evaluator.py:233(is_definination)
+     8607    0.003    0.000    0.006    0.000 lisp_evaluator.py:237(defination_variable)
+     8607    0.007    0.000    0.017    0.000 lisp_evaluator.py:244(defination_value)
+     8607    0.009    0.000    0.065    0.000 lisp_evaluator.py:253(eval_defination)
+   636490    0.109    0.000    0.109    0.000 lisp_evaluator.py:26(is_double_quote_string)
+   437015    0.063    0.000    0.063    0.000 lisp_evaluator.py:273(is_if)
+  67187/1    0.063    0.000    6.503    6.503 lisp_evaluator.py:277(eval_if)
+    67187    0.009    0.000    0.009    0.000 lisp_evaluator.py:284(if_predicate)
+     8726    0.001    0.000    0.001    0.000 lisp_evaluator.py:288(if_consequent)
+    58461    0.009    0.000    0.009    0.000 lisp_evaluator.py:292(if_alternative)
+    49983    0.007    0.000    0.007    0.000 lisp_evaluator.py:296(make_if)
+   386489    0.054    0.000    0.054    0.000 lisp_evaluator.py:300(is_cond)
+    16661    0.004    0.000    0.004    0.000 lisp_evaluator.py:304(cond_clauses)
+    16661    0.016    0.000    0.122    0.000 lisp_evaluator.py:308(expand_clauses)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:31(tokenize)
+    66644    0.011    0.000    0.011    0.000 lisp_evaluator.py:315(is_else_clause)
+    49983    0.006    0.000    0.006    0.000 lisp_evaluator.py:318(clause_predicate)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:32(_tokenize)
+    66644    0.008    0.000    0.008    0.000 lisp_evaluator.py:321(clause_action)
+66644/16661    0.073    0.000    0.105    0.000 lisp_evaluator.py:324(clauses_to_nested_if)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:34(<listcomp>)
+    16661    0.011    0.000    0.137    0.000 lisp_evaluator.py:341(cond_to_if)
+   352088    0.089    0.000    0.180    0.000 lisp_evaluator.py:346(is_combination)
+   352088    0.043    0.000    0.043    0.000 lisp_evaluator.py:350(get_combination_operator)
+   352088    0.070    0.000    0.070    0.000 lisp_evaluator.py:354(get_combination_operands)
+352088/126    0.147    0.000    6.501    0.052 lisp_evaluator.py:358(list_of_values)
+352088/126    0.145    0.000    6.501    0.052 lisp_evaluator.py:359(<listcomp>)
+   352088    0.071    0.000    0.107    0.000 lisp_evaluator.py:362(is_primitive_proc)
+   237975    0.079    0.000    0.112    0.000 lisp_evaluator.py:366(apply_in_python)
+ 114113/1    0.045    0.000    6.503    6.503 lisp_evaluator.py:370(eval_sequence)
+   114113    0.129    0.000    0.161    0.000 lisp_evaluator.py:378(extend_environment)
+      2/1    0.000    0.000    0.000    0.000 lisp_evaluator.py:385(list_impl)
+    24005    0.003    0.000    0.003    0.000 lisp_evaluator.py:423(<lambda>)
+    62925    0.009    0.000    0.009    0.000 lisp_evaluator.py:424(<lambda>)
+    65193    0.009    0.000    0.009    0.000 lisp_evaluator.py:425(<lambda>)
+    30033    0.004    0.000    0.004    0.000 lisp_evaluator.py:427(<lambda>)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:44(analyze)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:45(expr)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:52(operator)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:61(operands)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:72(operand)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:84(analyze_operand)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:94(parse)
+     3584    0.001    0.000    0.001    0.000 {built-in method _operator.add}
+    21419    0.003    0.000    0.003    0.000 {built-in method _operator.eq}
+     4096    0.001    0.000    0.001    0.000 {built-in method _operator.gt}
+    13363    0.002    0.000    0.002    0.000 {built-in method _operator.sub}
+    13356    0.002    0.000    0.002    0.000 {built-in method builtins.abs}
+   352088    0.035    0.000    0.035    0.000 {built-in method builtins.callable}
+        1    0.000    0.000    6.504    6.504 {built-in method builtins.exec}
+  3919853    0.360    0.000    0.360    0.000 {built-in method builtins.isinstance}
+   244889    0.024    0.000    0.024    0.000 {built-in method builtins.len}
+    17215    0.002    0.000    0.002    0.000 {method 'append' of 'list' objects}
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+        4    0.000    0.000    0.000    0.000 {method 'pop' of 'list' objects}
+        2    0.000    0.000    0.000    0.000 {method 'replace' of 'str' objects}
+        2    0.000    0.000    0.000    0.000 {method 'split' of 'str' objects}
+        2    0.000    0.000    0.000    0.000 {method 'strip' of 'str' objects}
+
+-------------------- with analyze --------------------
+>>> timeit.timeit(lambda: eval_(parse('(queens 7)'), ENV), number=1)
+0.5415880019999975
+
+>>> cProfile.run("""eval_(parse('(queens 7)'), ENV)""")
+         4643233 function calls (3405796 primitive calls) in 1.446 seconds
+
+   Ordered by: standard name
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    1.446    1.446 <string>:1(<module>)
+        7    0.000    0.000    0.000    0.000 lisp_evaluator.py:10(is_list)
+        1    0.000    0.000    1.446    1.446 lisp_evaluator.py:102(eval_)
+      3/1    0.000    0.000    0.000    0.000 lisp_evaluator.py:107(analyze)
+ 352088/1    0.274    0.000    1.446    1.446 lisp_evaluator.py:136(execute_combination)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:14(is_number_string)
+        3    0.000    0.000    0.000    0.000 lisp_evaluator.py:163(is_self_evaluating)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:173(analyze_self_evaluating)
+     4112    0.000    0.000    0.000    0.000 lisp_evaluator.py:177(<lambda>)
+        2    0.000    0.000    0.000    0.000 lisp_evaluator.py:188(is_variable)
+     8607    0.002    0.000    0.002    0.000 lisp_evaluator.py:192(set_variable)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:196(analyze_variable)
+   636490    0.145    0.000    0.295    0.000 lisp_evaluator.py:197(<lambda>)
+   636490    0.151    0.000    0.151    0.000 lisp_evaluator.py:200(lookup_variable_value)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:208(is_lambda)
+     9133    0.003    0.000    0.004    0.000 lisp_evaluator.py:236(<lambda>)
+   114113    0.018    0.000    0.018    0.000 lisp_evaluator.py:238(is_compound_procedure)
+     9133    0.001    0.000    0.001    0.000 lisp_evaluator.py:242(make_compound_procedure)
+   114113    0.013    0.000    0.013    0.000 lisp_evaluator.py:247(procedure_params)
+   114113    0.013    0.000    0.013    0.000 lisp_evaluator.py:251(procedure_body)
+   114113    0.012    0.000    0.012    0.000 lisp_evaluator.py:255(procedure_environment)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:259(is_definination)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:26(is_double_quote_string)
+     8607    0.005    0.000    0.010    0.000 lisp_evaluator.py:282(<lambda>)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:304(is_if)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:31(tokenize)
+  67187/1    0.035    0.000    1.446    1.446 lisp_evaluator.py:312(<lambda>)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:32(_tokenize)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:337(is_cond)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:34(<listcomp>)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:383(is_combination)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:386(analyze_combination)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:388(<listcomp>)
+ 352088/1    0.260    0.000    1.446    1.446 lisp_evaluator.py:389(<lambda>)
+352088/126    0.139    0.000    1.445    0.011 lisp_evaluator.py:391(<listcomp>)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:394(get_combination_operator)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:398(get_combination_operands)
+   352088    0.064    0.000    0.091    0.000 lisp_evaluator.py:406(is_primitive_proc)
+   237975    0.069    0.000    0.101    0.000 lisp_evaluator.py:410(apply_in_python)
+ 114113/1    0.046    0.000    1.446    1.446 lisp_evaluator.py:424(f)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:44(_analyze)
+   114113    0.107    0.000    0.138    0.000 lisp_evaluator.py:440(extend_environment)
+      2/1    0.000    0.000    0.000    0.000 lisp_evaluator.py:447(list_impl)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:45(expr)
+    24005    0.003    0.000    0.003    0.000 lisp_evaluator.py:485(<lambda>)
+    62925    0.009    0.000    0.009    0.000 lisp_evaluator.py:486(<lambda>)
+    65193    0.009    0.000    0.009    0.000 lisp_evaluator.py:487(<lambda>)
+    30033    0.004    0.000    0.004    0.000 lisp_evaluator.py:489(<lambda>)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:52(operator)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:61(operands)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:72(operand)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:84(analyze_operand)
+        1    0.000    0.000    0.000    0.000 lisp_evaluator.py:94(parse)
+     3584    0.000    0.000    0.000    0.000 {built-in method _operator.add}
+    21419    0.002    0.000    0.002    0.000 {built-in method _operator.eq}
+     4096    0.000    0.000    0.000    0.000 {built-in method _operator.gt}
+    13363    0.002    0.000    0.002    0.000 {built-in method _operator.sub}
+    13356    0.001    0.000    0.001    0.000 {built-in method builtins.abs}
+   352088    0.027    0.000    0.027    0.000 {built-in method builtins.callable}
+        1    0.000    0.000    1.446    1.446 {built-in method builtins.exec}
+   114124    0.011    0.000    0.011    0.000 {built-in method builtins.isinstance}
+   228228    0.020    0.000    0.020    0.000 {built-in method builtins.len}
+        1    0.000    0.000    0.000    0.000 {method 'append' of 'list' objects}
+        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+        4    0.000    0.000    0.000    0.000 {method 'pop' of 'list' objects}
+        2    0.000    0.000    0.000    0.000 {method 'replace' of 'str' objects}
+        2    0.000    0.000    0.000    0.000 {method 'split' of 'str' objects}
+        2    0.000    0.000    0.000    0.000 {method 'strip' of 'str' objects}

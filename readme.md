@@ -780,15 +780,28 @@ The data paths and controller for a GCD machine:
 The corresponding GCD machine is described as follows:
 
 ```
-(controller
-    test-b
-        (test (op =) (reg b) (const 0))
-        (branch (label gcd-done))
-        (assign t (op rem) (reg a) (reg b))
-        (assign a (reg b))
-        (assign b (reg t))
-        (goto (label test-b))
-    gcd-done)
+(define-machine gcd
+  ;; Purpose: (assign a gcd (fetch a) (fetch b)))
+  ;; Side effect is to set contents of b to zero.
+
+  ;; First we declare our data paths.
+  (registers a b t1)              ;These are the registers we may use.
+  (operations                     ;These are the operations we may use.
+   (assign tl (remainder (fetch a) (fetch b)))
+   (assign a (fetch b))
+   (assign b (fetch t1))
+   (branch (zero? (fetch b)) gcd-done)
+   (goto test-b))
+
+  ;; This is the program for the controller.
+  (controller
+   test-b             ;This is a label
+    (branch (zero? (fetch b)) gcd-done)
+    (assign t1 (remainder (fetch a) (fetch b)))
+    (assign a (fetch b))
+    (assign b (fetch t1))
+    (goto test-b)      ;Continue at label above
+   gcd-done))
 ```
 
 There are two kind of special operations: Read and Print.
@@ -797,12 +810,78 @@ There are two kind of special operations: Read and Print.
 
 - Print: printing the contents of a register. `(perform (op print) (reg a))`
 
+### Subroutines and Continuation
+
+In order to hold one copy of the GCD routine and reuse registers(`a b t1`) between multiple GCDs, another register `continue` is introduced to hold continuation information.
+
+Before calling `gcd`, the label `after-gcd` is saved into the `continue`. When `gcd` is done, goto the label in `continue`.
+
+GCD subroutine:
+
+```
+gcd
+    ...
+gcd-done
+    (goto (reg continue))
+```
+
+Calling gcd-1 and gcd-2:
+
+```
+; calling gcd
+    (assign continue (label after-gcd-1))
+    (goto (label gcd))
+after-gcd-1
+
+...
+
+; calling another gcd
+(assign continue (label after-gcd-2))
+(goto (label gcd))
+after-gcd-2
+```
+
+
+This approach works well even if there are other subroutines, such as `fact`, `sub` in the machine, just make sure to save the continuation information before calling the subroutine.
+
+However, if we have a subroutine (sub1) calling another subroutine (sub2), this approach will failed, since the contination information of sub1 will be overwritten by the sub2.
+
 ### Using a Stack to Implement Recursion
+
+In order to implement subroutine calls, the content of `continue` must be saved in some place. These values must be restored in the reverse of the order in which they were saved, since the innermost subroutine call must return first.
+
+Also, in order to implement recurive process, some values in the registers must be saved as well.
+
+This dictates the use of a stack, or “last in, first out” data structure, to save register values.
+
+For example, a recursive `factorial` procedure,
+
+```
+(controller
+ (assign continue (label fact-done))   ; set up final return address
+fact-loop
+ (test (op =) (reg n) (const 1))
+ (branch (label base-case))
+ (save continue)                       ; Set up for the recursive call
+ (save n)                              ; by saving n and continue.
+ (assign n (op -) (reg n) (const 1))   ; Set up continue so that the
+ (assign continue (label after-fact))  ; computation will continue
+ (goto (label fact-loop))              ; at after-fact when the
+after-fact                              ; subroutine returns.
+ (restore n)
+ (restore continue)
+ (assign val (op *) (reg n) (reg val)) ; val now contains n(n - 1)!
+ (goto (reg continue))                 ; return to caller
+base-case
+ (assign val (const 1))                ; base case: 1! = 1
+ (goto (reg continue))                 ; return to caller
+ fact-done)
+```
 
 
 ### Instruction Summary
 
-A controller instruction in our register-machine language has one of the following forms, where each ⟨ i n p u t i ⟩ is either (reg ⟨register-name⟩) or (const ⟨constant-value⟩). These instructions were introduced in 5.1.1: 
+A controller instruction in our register-machine language has one of the following forms, where each ⟨ input i ⟩ is either (reg ⟨register-name⟩) or (const ⟨constant-value⟩). These instructions were introduced in 5.1.1:
 
 ```
 (assign ⟨register-name⟩ (reg ⟨register-name⟩))

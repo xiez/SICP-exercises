@@ -101,7 +101,7 @@ def parse(line):
 # eval & apply --------------------
 def eval_(exp, env):
     """Evaluate an expression within an environment."""
-    print(f'eval exp: {exp}')
+    # print(f'eval exp: {exp}')
     return analyze(exp)(env)
 
 def analyze(exp):
@@ -412,10 +412,21 @@ def apply_in_python(proc, args):
 
 
 def analyze_sequence(exps):
+    """Each expression in the sequence is analyzed, yielding an execution procedure.
+    These execution procedures are combined to produce an execution procedure that
+    takes an environment as argument and sequentially calls each individual execution
+    procedure with the environment as argument.
+    """
     procs = [analyze(e) for e in exps]
     if not procs:
         raise Exception("Empty sequence: analyze")
-    return procs
+
+    def f(env):
+        ret = None
+        for p in procs:
+            ret = p(env)
+        return ret
+    return f
 
 
 def eval_sequence(exps, env):

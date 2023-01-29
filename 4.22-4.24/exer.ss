@@ -941,6 +941,31 @@
 ;;; just add analyze to the let clause
 
 ;;; exer 4.23
+;; Alyssa's procedure defers the execution of *procs* at runtime.
+;; The procedure in the text unrolls the loop to optimise the execution speed.
+(lambda (env)
+  (proc1 env)
+  (proc2 env))
+
+(lambda (env)
+  ((lambda (env) (proc1 env) (proc2 env)) env)
+  (proc3 env))
+
+
+(lambda (env)
+  ((lambda (env)
+     ((lambda (env) (proc1 env) (proc2 env)) env)
+     (proc3 env)) env)
+  (proc4 env))
+
+(lambda (env)
+  ((lambda (env)
+     ((lambda (env)
+        ((lambda (env) (proc1 env) (proc2 env)) env)
+        (proc3 env)) env)
+     (proc4 env)) env)
+  (proc5 env))
+
 
 ;;; exer 4.24
 (#%require profile)
@@ -958,7 +983,7 @@
  env)
  )
 ;;; 10.86s vs previous version: 21.73s
-;;; the time spent in analyze is around 50% in previous version !
+;;; The amount of time spent on analysing is about 50% of the previous version !
 
 
 

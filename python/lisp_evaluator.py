@@ -1,5 +1,9 @@
-# A Lisp evaluator implemented in Python
-# Note: before run this script, increase stack size limit by: ulimit -s 60000
+# A Lisp evaluator implemented in Python.
+# Note: before running this script, increase the stack size limit with: ulimit -s 60000
+
+# version 0.0.2
+# - Separate syntactic analysis of expressions from execution.
+
 import operator as op
 
 import sys
@@ -421,13 +425,32 @@ def analyze_sequence(exps):
     if not procs:
         raise Exception("Empty sequence: analyze")
 
+    # """Loop unrolling.
+    # Before:
+    # >>> timeit.timeit(lambda: eval_(parse('(fib 28)'), ENV), number=1)
+    # 4.9013414580000045
+    # After:
+    # >>> timeit.timeit(lambda: eval_(parse('(fib 28)'), ENV), number=1)
+    # 4.705144664999999
+    # """
+    # def sequentially(proc1, proc2):
+    #     def f(env):
+    #         proc1(env)
+    #         return proc2(env)
+    #     return f
+
+    # def unroll(first, rest):
+    #     if not rest:
+    #         return first
+    #     return unroll(sequentially(first, rest[0]), rest[1:])
+    # return unroll(procs[0], procs[1:])
+
     def f(env):
         ret = None
         for p in procs:
             ret = p(env)
         return ret
     return f
-
 
 def eval_sequence(exps, env):
     # use last value of exps as the return value

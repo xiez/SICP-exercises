@@ -1,7 +1,31 @@
 # A register machine in Python with type annotations.
 from abc import ABC
-from typing import List, Any, Tuple
+from typing import List, Any, Tuple, Callable
 import operator as op
+
+# utils --------------------
+def is_tagged_list(pair: List, tag: str):
+    assert isinstance(pair, list), pair
+    assert isinstance(pair[0], str), pair
+    return pair[0] == tag
+
+def is_operation_exp(exp: List):
+    """
+    e.g.
+     [['op', '-'], ['reg', 'counter'], ['const', 1]]
+    """
+    assert isinstance(exp, list)
+    return is_tagged_list(exp[0][0], 'op')
+
+def operation_exp_op(exp: List) -> str:
+    """
+    """
+    return exp[0][1]
+
+def operation_exp_operands(exp: List) -> List:
+    return exp[1:]
+
+# --------------------
 
 class Instruction:
     """A machine instruction simply pairs the instruction text with the corresponding
@@ -45,9 +69,15 @@ class LabelTable:
             raise Exception(f"Undefined label: {label_name}")
 
     def insert_entry(self, label_name, instructions):
-        if self.loopup_label(label_name):
+        if label_name in self.dic:
             raise Exception(f"Duplicated label: {label_name}")
         self.dic[label_name] = instructions
+
+    def __str__(self):
+        entries = []
+        for k, v in self.dic.items():
+            entries.append(f"{k} -> {v}")
+        return "\n".join(entries)
 
 class Register:
     """A machine register used to save values or labels."""
@@ -109,6 +139,10 @@ class BaseMachine(ABC):
     def _instruction_execution_proc(self, inst):
         instruction = self.instruction_sequence.pop(0)
 
+    def advance_pc(self):
+        """Advance the instruction sequence by one."""
+        self._pc.get_contents().pop(0)
+
     def execute(self):
         """Get an instruction, executes it by calling the instruction
         execution procedure, and repeats this cycle until there are no
@@ -159,20 +193,20 @@ class BaseMachine(ABC):
         print(f'Assembling controller text: {controller_text}')
 
         initial_inst_list, label_table = self._extract_labels(controller_text)
+        # print(initial_inst_list)
+        # print('========')
+        # print(label_table)
         inst_list_with_proc = self._update_insts(initial_inst_list, label_table)
         return inst_list_with_proc
 
-    def _extract_labels(self, controller_text) -> Tuple[List, LabelTable]:
-        """Build the initial instruction list [(<text>, <proc>), ...],
+    def _extract_labels(self, controller_text: List) -> Tuple[List, LabelTable]:
+        """Build the initial instruction list [<text>, ...],
         and label table [(<label_name>, <insts>), ...].
 
         e.g.
         instruction list: [
-        (
           ['test', ['op', '='], ['reg', 'counter'], ['const', 0]],
-          <proc>
-        ),
-        ...
+          ...
         ]
 
         label table: [
@@ -187,20 +221,61 @@ class BaseMachine(ABC):
         ...
         ]
         """
-        ...
+        insts = []
+        label_table = LabelTable()
+        for idx, a_inst in enumerate(controller_text):
+            if isinstance(a_inst, list):
+                insts.append(a_inst)
+            elif isinstance(a_inst, str):
+                label_table.insert_entry(a_inst, controller_text[idx+1:])
+            else:
+                raise Exception(f"Invalid instruction text {a_inst}")
+        return insts, label_table
 
-    def _update_insts(self, insts: List, labels):
+    def _update_insts(self, insts: List, labels: LabelTable) -> List[Instruction]:
         """Modifies the instruction list *insts*, which initially contains only the text of the
         instrcutions, to include the corresponding execution procedures.
         """
-        i = 0
-        while i < len(insts):
-            orig_inst = insts[i]
-            insts[i] = self._set_instruction_execution_proc(
-                orig_inst, self._make_execution_procedure(
-                    orig_inst.text, labels, self._pc, self._flag, self.stack, self.operations
-                )
+        insts_with_proc = []
+        for a_inst in insts:
+            inst = self._make_execution_procedure(
+                a_inst, labels
             )
+            insts_with_proc.append(inst)
+        return insts_with_proc
+
+    def _make_execution_procedure(self, inst: List, labels: LabelTable) -> Instruction:
+        assert isinstance(inst, list)
+
+        inst_type = inst[0]
+
+        if inst_type == 'test':
+            ...
+        elif inst_type == 'branch':
+            ...
+        elif inst_type == 'assign':
+            proc = self._make_assign(inst, labels)
+            return Instruction(inst, proc)
+        elif inst_type == 'goto':
+            ...
+        else:
+            assert False, f"TODO: {inst_type}"
+
+    def _make_assign(self, inst: List, labels) -> Callable:
+        assign_reg_name = inst[1]
+        target = self.get_register(assign_reg_name)
+        value_exp = inst[2:]
+
+        if is_operation_exp(value_exp):
+            value_proc = make_operation_exp(value_exp, self, labels)
+        else:
+            value_proc = make_primitive_exp(value_exp, self, labels)
+
+        def proc():
+            target.set_contents(value_proc())
+            self.advance_pc()
+        return proc
+
 
 class Machine(BaseMachine):
     """A general purpose register machine."""
@@ -219,6 +294,39 @@ class Machine(BaseMachine):
             self.assemble(controller_text)
         )
 
+
+# utils ----------
+def make_operation_exp(exp: List, machine: Machine, labels: LabelTable) -> Callable:
+    """
+    exp: operation exp, e.g. [['op', '*'], ['reg', 'b'], ['reg', 'product']]
+    """
+    op = machine.lookup_prim(operation_exp_op(exp))
+    aprocs = [make_primitive_exp(o, machine, labels) for o in operation_exp_operands]
+
+    def f():
+        args = [p() for p in aprocs]
+        return op(args)
+    return f
+
+is_constant_exp = lambda exp: is_tagged_list(exp, 'const')
+is_label_exp = lambda exp: is_tagged_list(exp, 'label')
+is_register_exp = lambda exp: is_tagged_list(exp, 'register')
+constant_exp_value = register_exp_value = label_exp_value = lambda exp: exp[1]
+
+def make_primitive_exp(exp: List, machine: Machine, labels: LabelTable) -> Callable:
+    """
+    exp: primivte exp, e.g. ['const', 1], ['label', 'expt-loop'], ['reg', 'counter']
+    """
+    if is_constant_exp(exp):
+        ...
+    elif is_label_exp(exp):
+        ...
+    elif is_register_exp(exp):
+        ...
+    else:
+        raise Exception(f"Unknown exression type: {exp}")
+
+# -----------------------
 
 # start a machine
 '''

@@ -98,16 +98,24 @@ class Stack:
         self.lst = []
 
     def push(self, x: Any):
-        assert self.lst, "Stack not initialized."
+        assert self.lst is not None, "Stack not initialized."
         self.lst.append(x)
 
     def pop(self):
-        assert self.lst, "Stack not initialized."
+        assert self.lst is not None, "Stack not initialized."
         try:
-            self.lst.pop(0)
+            return self.lst.pop()
         except IndexError:
             raise Exception("Empty stack: POP")
 
+    def __repr__(self):
+        val = 'bottom -> top: '
+        for e in self.lst:
+            if isinstance(e, list):
+                val += f", {e[:1]}"
+            else:
+                val += f", {e}"
+        return val
 
 class BaseMachine(ABC):
     """A basic machine contains general compoments(
@@ -119,6 +127,7 @@ class BaseMachine(ABC):
         self._pc = Register("pc")  # program counter
         self._flag = Register("flag")
         self.stack = Stack()
+        self.stack.initialize()
         self.instruction_sequence = []
         self.operations = [["initialize-stack", self.stack.initialize]]
         self.register_table = {
@@ -142,7 +151,12 @@ class BaseMachine(ABC):
     def _status(self):
         logging.debug("===== status ====")
         for _, reg in self.register_table.items():
-            logging.debug(f"register: {reg.name}, content: {reg.contents}")
+            if reg.name == 'pc':
+                logging.debug(f"register: {reg.name}, content: {reg.contents[:1]} .. ")
+            else:
+                logging.debug(f"register: {reg.name}, content: {reg.contents}")
+
+        logging.debug(f"stack: {self.stack}")
         logging.debug("================")
 
     def execute(self):
@@ -289,6 +303,10 @@ class BaseMachine(ABC):
             return self._make_assign(inst, labels)
         elif inst_type == "goto":
             return self._make_goto(inst, labels)
+        elif inst_type == "save":
+            return self._make_save(inst, labels)
+        elif inst_type == "restore":
+            return self._make_restore(inst, labels)
         elif inst_type == "perform":
             return self._make_perform(inst, labels)
         else:
@@ -357,6 +375,27 @@ class BaseMachine(ABC):
             return lambda: self._pc.set_contents(reg.get_contents())
         else:
             raise Exception(f"Bad goto instruction: {inst}")
+
+    def _make_save(self, inst: List, labels: LabelTable) -> Callable:
+        """make a save instruction procedure.
+        """
+        reg = self.get_register(stack_inst_reg_name(inst))
+
+        def f():
+            self.stack.push(reg.get_contents())
+            self.advance_pc()
+        return f
+
+    def _make_restore(self, inst: List, labels: LabelTable) -> Callable:
+        """make a restore instruction procedure.
+        """
+        reg = self.get_register(stack_inst_reg_name(inst))
+
+        def f():
+            reg.set_contents(self.stack.pop())
+            self.advance_pc()
+        return f
+
 
     def _make_perform(self, inst: List, labels: LabelTable) -> Callable:
         """Make a perform instruction procedure.
@@ -443,6 +482,9 @@ def assign_value_exp(inst) -> List:
 
 
 def goto_dest(exp: List) -> List:
+    return exp[1]
+
+def stack_inst_reg_name(exp: List) -> str:
     return exp[1]
 
 def perform_action(exp: List) -> List:
@@ -543,6 +585,68 @@ controller_text = [
 # print("result: ", res)
 # assert res == 1024
 
+# recursive expt machine
+"""
+(controller
+ (assign continue (label expt-done))
+ (assign n (const 10))
+ (assign b (const 2))
+ expt-loop
+ (test (op =) (reg n) (const 0))
+ (branch (label expt-base))
+ (save n)
+ (save continue)
+ (assign n (op -) (reg n) (const 1))
+ (assign continue (label after-expt))
+ (goto (label expt-loop))
+ expt-base
+ (assign val (const 1))
+ (goto (reg continue))
+ after-expt
+ (restore continue)
+ (restore n)
+ (assign val (op *) (reg b) (reg val))
+ (goto (reg continue))
+ expt-done
+ )
+"""
+regs = ['continue', 'b', 'n', 'val']
+ops = [
+    ["=", op.eq],
+    ["-", op.sub],
+    ["*", op.mul],
+]
+controller_text = [
+    'controller',
+    ['assign', 'continue', ['label', 'expt-done']],
+    ['assign', 'n', ['const', 10]],
+    ['assign', 'b', ['const', 2]],
+    'expt-loop',
+    ['test', ['op', '='], ['reg', 'n'], ['const', 0]],
+    ['branch', ['label', 'expt-base']],
+    ['save', 'n'],
+    ['save', 'continue'],
+    ['assign', 'n', ['op', '-'], ['reg', 'n'], ['const', 1]],
+    ['assign', 'continue', ['label', 'after-expt']],
+    ['goto', ['label', 'expt-loop']],
+    'expt-base',
+    ['assign', 'val', ['const', 1]],
+    ['goto', ['reg', 'continue']],
+    'after-expt',
+    ['restore', 'continue'],
+    ['restore', 'n'],
+    ['assign', 'val', ['op', '*'], ['reg', 'b'], ['reg', 'val']],
+    ['goto', ['reg', 'continue']],
+    'expt-done'
+]
+
+expt_machine = Machine(regs, ops, controller_text, name='recurive expt machine')
+expt_machine.start()
+res = expt_machine.get_register("val").get_contents()
+print("result: ", res)
+assert res == 1024
+
+
 # exer5.3: sqrt machine
 '''
 (sqrt-loop
@@ -580,7 +684,5 @@ controller_text = [
     'done',
     ['perform', ['op', 'print'], ['reg', 'guess']]
 ]
-gcd_machine = Machine(regs, ops, controller_text, name='sqrt machine')
-gcd_machine.start()
-
-# recursive expt machine
+# sqrt_machine = Machine(regs, ops, controller_text, name='sqrt machine')
+# sqrt_machine.start()

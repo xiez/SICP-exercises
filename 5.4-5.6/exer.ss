@@ -115,23 +115,23 @@
 
 (controller
  (assign continue (label expt-done))
- ;; expt-loop
+ expt-loop
  (test (op =) (reg n) (const 0))
  (branch (label expt-base))
  (save n)
  (save continue)
- (assign n (op -) (reg n) (cons 1))     ;n = n -1
+ (assign n (op -) (reg n) (const 1))     ;n = n -1
  (assign continue (label after-expt))
  (goto (label expt-loop))
- ;; expt-base
+ expt-base
  (assign val (const 1))                 ;val = 1
  (goto (reg continue))
- ;; after-expt
+ after-expt
  (restore continue)
  (restore n)
  (assign val (op *) (reg b) (reg val))   ;val = b * (expt b (- n 1))
  (goto (reg continue))
- ;; expt-done
+ expt-done
  )
 
 

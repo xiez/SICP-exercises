@@ -4,8 +4,7 @@
 
 import logging
 from abc import ABC
-from typing import List, Any, Tuple, Callable
-import operator as op
+from typing import List, Any, Tuple, Callable, Dict
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s: %(message)s",
@@ -109,13 +108,14 @@ class Stack:
             raise Exception("Empty stack: POP")
 
     def __repr__(self):
-        val = 'bottom -> top: '
+        val = "bottom -> top: "
         for e in self.lst:
             if isinstance(e, list):
                 val += f", {e[:1]}"
             else:
                 val += f", {e}"
         return val
+
 
 class BaseMachine(ABC):
     """A basic machine contains general compoments(
@@ -151,7 +151,7 @@ class BaseMachine(ABC):
     def _status(self):
         logging.debug("===== status ====")
         for _, reg in self.register_table.items():
-            if reg.name == 'pc':
+            if reg.name == "pc":
                 logging.debug(f"register: {reg.name}, content: {reg.contents[:1]} .. ")
             else:
                 logging.debug(f"register: {reg.name}, content: {reg.contents}")
@@ -171,7 +171,9 @@ class BaseMachine(ABC):
 
         next_inst = insts[0]
         self.cycle_counter += 1
-        logging.debug(f"executing next instruction: {next_inst}, cycle counter: {self.cycle_counter} ")
+        logging.debug(
+            f"executing next instruction: {next_inst}, cycle counter: {self.cycle_counter} "
+        )
 
         # each machine instruction is a data structure that includes a
         # procedure of no arguments, called the instruction execution
@@ -262,7 +264,7 @@ class BaseMachine(ABC):
         ]
         """
         insts = []
-        label_idx = {}
+        label_idx: Dict[str, int] = {}
         for idx, text in enumerate(controller_text):
             if isinstance(text, list):
                 insts.append(Instruction(text))
@@ -270,8 +272,8 @@ class BaseMachine(ABC):
                 label_idx[text] = idx - len(label_idx.keys())
             else:
                 raise Exception(f"Invalid instruction text: {text}")
-        print(insts)
-        print("label_idx:", label_idx)
+        # print(insts)
+        # print("label_idx:", label_idx)
         label_table = LabelTable()
         for label, idx in label_idx.items():
             label_table.insert_entry(label, insts[idx:])
@@ -377,30 +379,27 @@ class BaseMachine(ABC):
             raise Exception(f"Bad goto instruction: {inst}")
 
     def _make_save(self, inst: List, labels: LabelTable) -> Callable:
-        """make a save instruction procedure.
-        """
+        """make a save instruction procedure."""
         reg = self.get_register(stack_inst_reg_name(inst))
 
         def f():
             self.stack.push(reg.get_contents())
             self.advance_pc()
+
         return f
 
     def _make_restore(self, inst: List, labels: LabelTable) -> Callable:
-        """make a restore instruction procedure.
-        """
+        """make a restore instruction procedure."""
         reg = self.get_register(stack_inst_reg_name(inst))
 
         def f():
             reg.set_contents(self.stack.pop())
             self.advance_pc()
+
         return f
 
-
     def _make_perform(self, inst: List, labels: LabelTable) -> Callable:
-        """Make a perform instruction procedure.
-
-        """
+        """Make a perform instruction procedure."""
         action = perform_action(inst)
         if not is_operation_exp(action):
             raise Exception(f"Bad perform instruction: {inst}")
@@ -410,17 +409,19 @@ class BaseMachine(ABC):
         def f():
             action_proc()
             self.advance_pc()
+
         return f
+
 
 class Machine(BaseMachine):
     """A general purpose register machine."""
 
     def __init__(
-            self,
-            register_names: List[str],
-            ops: List,
-            controller_text: List,
-            name='',
+        self,
+        register_names: List[str],
+        ops: List,
+        controller_text: List,
+        name="",
     ):
         super().__init__()
 
@@ -429,6 +430,7 @@ class Machine(BaseMachine):
         self.install_operations(ops)
         self.install_instruction_sequence(self.assemble(controller_text))
         self.name = name
+
 
 # utils ----------
 def is_tagged_list(pair: List, tag: str):
@@ -484,11 +486,14 @@ def assign_value_exp(inst) -> List:
 def goto_dest(exp: List) -> List:
     return exp[1]
 
+
 def stack_inst_reg_name(exp: List) -> str:
     return exp[1]
 
+
 def perform_action(exp: List) -> List:
     return exp[1:]
+
 
 def make_operation_exp(exp: List, machine: BaseMachine, labels: LabelTable) -> Callable:
     """Make the procedure from operation expression.
@@ -542,147 +547,3 @@ def make_primitive_exp(exp: List, machine: BaseMachine, labels: LabelTable) -> C
         return lambda: r.get_contents()
     else:
         raise Exception(f"Unknown exression type: {exp}")
-
-
-# -----------------------
-
-# iterative expt machine
-"""
-(define expt-machine-iter
-  (make-machine
-   '(b counter product)
-   (list (list '= =) (list '- -) (list '* *))
-   '(expt-loop
-       (test (op =) (reg counter) (const 0))
-       (branch (label expt-done))
-       (assign counter (op -) (reg counter) (const 1)) ;counter = counter - 1
-       (assign product (op *) (reg b) (reg product)) ;product = product * b
-       (goto (label expt-loop))
-     expt-done)))
-"""
-regs = ["b", "counter", "product"]
-ops = [
-    ["=", op.eq],
-    ["-", op.sub],
-    ["*", op.mul],
-]
-controller_text = [
-    ["assign", 'product', ['const', 1]],
-    ["assign", 'b', ['const', 2]],
-    ["assign", 'counter', ['const', 10]],
-    "expt-loop",
-    ["test", ["op", "="], ["reg", "counter"], ["const", 0]],
-    ["branch", ["label", "expt-done"]],
-    ["assign", "counter", ["op", "-"], ["reg", "counter"], ["const", 1]],
-    ["assign", "product", ["op", "*"], ["reg", "b"], ["reg", "product"]],
-    ["goto", ["label", "expt-loop"]],
-    "expt-done",
-]
-
-# expt_machine = Machine(regs, ops, controller_text, name='iterative expt machine')
-# expt_machine.start()
-# res = expt_machine.get_register("product").get_contents()
-# print("result: ", res)
-# assert res == 1024
-
-# recursive expt machine
-"""
-(controller
- (assign continue (label expt-done))
- (assign n (const 10))
- (assign b (const 2))
- expt-loop
- (test (op =) (reg n) (const 0))
- (branch (label expt-base))
- (save n)
- (save continue)
- (assign n (op -) (reg n) (const 1))
- (assign continue (label after-expt))
- (goto (label expt-loop))
- expt-base
- (assign val (const 1))
- (goto (reg continue))
- after-expt
- (restore continue)
- (restore n)
- (assign val (op *) (reg b) (reg val))
- (goto (reg continue))
- expt-done
- )
-"""
-regs = ['continue', 'b', 'n', 'val']
-ops = [
-    ["=", op.eq],
-    ["-", op.sub],
-    ["*", op.mul],
-]
-controller_text = [
-    'controller',
-    ['assign', 'continue', ['label', 'expt-done']],
-    ['assign', 'n', ['const', 10]],
-    ['assign', 'b', ['const', 2]],
-    'expt-loop',
-    ['test', ['op', '='], ['reg', 'n'], ['const', 0]],
-    ['branch', ['label', 'expt-base']],
-    ['save', 'n'],
-    ['save', 'continue'],
-    ['assign', 'n', ['op', '-'], ['reg', 'n'], ['const', 1]],
-    ['assign', 'continue', ['label', 'after-expt']],
-    ['goto', ['label', 'expt-loop']],
-    'expt-base',
-    ['assign', 'val', ['const', 1]],
-    ['goto', ['reg', 'continue']],
-    'after-expt',
-    ['restore', 'continue'],
-    ['restore', 'n'],
-    ['assign', 'val', ['op', '*'], ['reg', 'b'], ['reg', 'val']],
-    ['goto', ['reg', 'continue']],
-    'expt-done'
-]
-
-expt_machine = Machine(regs, ops, controller_text, name='recurive expt machine')
-expt_machine.start()
-res = expt_machine.get_register("val").get_contents()
-print("result: ", res)
-assert res == 1024
-
-
-# exer5.3: sqrt machine
-'''
-(sqrt-loop
- (assign x (op read))
- (assign guess (const 1.0))
- test-guess
- (test (op good-enough?) (reg guess) (reg x))
- (branch (label done))
- (assign guess (op improve) (reg guess) (reg x))
- (goto (label test-guess))
- done
- (perform (op print) (reg guess)))
-'''
-regs = ['x', 'guess']
-def is_good_enough(guess, val):
-    ret = abs(guess ** 2 - val) < 0.001
-    return ret
-def improve(guess, val):
-    return (guess + val / guess) / 2
-ops = [
-    ['good-enough?', is_good_enough],
-    ['improve', improve],
-    ['print', print],
-    ['read', lambda: int(input('Enter a number: '))],
-]
-controller_text = [
-    'sqrt-loop',
-    ['assign', 'x', ['op', 'read']],
-    ['assign', 'guess', ['const', 1.0]],
-    'test-guess',
-    ['test', ['op', 'good-enough?'], ['reg', 'guess'], ['reg', 'x']],
-    ['branch', ['label', 'done']],
-    ['assign', 'guess', ['op', 'improve'], ['reg', 'guess'], ['reg', 'x']],
-    ['goto', ['label', 'test-guess']],
-    'done',
-    ['perform', ['op', 'print'], ['reg', 'guess']]
-]
-# sqrt_machine = Machine(regs, ops, controller_text, name='sqrt machine')
-# sqrt_machine.start()

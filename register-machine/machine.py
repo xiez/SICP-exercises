@@ -8,7 +8,7 @@ from typing import List, Any, Tuple, Callable, Dict
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s: %(message)s",
-    level=logging.DEBUG,
+    level=logging.WARN,
 )
 
 

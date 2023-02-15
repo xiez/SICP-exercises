@@ -1,5 +1,18 @@
 #lang sicp
 
+;;; exports
+(#%require racket/base)
+(provide tagged-list?)
+(provide lookup-prim)
+(provide make-operation-exp)
+(provide operation-exp-operands)
+(provide make-stack)
+
+;;; utils
+(define (tagged-list? x sym)
+  (equal? sym (car x)))
+
+;;; the general machine constructor
 (define (make-machine register-names
                       ops 
                       controller-text)
@@ -13,7 +26,7 @@
      (assemble controller-text machine))
     machine))
 
-;;; register
+;;; the register constructor
 (define (make-register name)
   (let ((contents '*unassigned*))
     (define (dispatch message)
@@ -27,12 +40,13 @@
                     message))))
     dispatch))
 
+;;; register shortcut functions
 (define (get-contents reg)
   (reg 'get))
 (define (set-contents! reg value)
   ((reg 'set) value))
 
-;;; stack
+;;; the stack constructor
 (define (make-stack)
   (let ((s '()))
     (define (push x)
@@ -61,7 +75,7 @@
                     message))))
     dispatch))
 
-;;; machine
+;;; a customize machine constructor
 (define (make-new-machine)
   (let ((pc (make-register 'pc))
         (flag (make-register 'flag))
@@ -113,7 +127,7 @@
               (else (error "Unknown request: MACHINE" message))))
       dispatch)))
 
-;;; shortcut functions
+;;; machine shortcut functions
 (define (start machine)
   (machine 'start))
 
@@ -132,76 +146,21 @@
 (define (get-register machine reg-name)
   ((machine 'get-register) reg-name))
 
-;;; assembler
+;;; the assembler ;;;;;;;;;;;;;;;;;;;;
 
-;; (define controller-text
-;;   '(expt-loop
-;;     (test (op =) (reg n) (const 0))
-;;     (branch (label expt-base))
-;;     (save n)
-;;     (save continue)
-;;     (assign n (op -) (reg n) (cons 1))  ;n = n -1
-;;     (assign continue (label after-expt))
-;;     (goto (label expt-loop))
-;;     ;; expt-base
-;;     expt-base
-;;     (assign val (const 1))              ;val = 1
-;;     (goto (reg continue))
-;;     ;; after-expt
-;;     after-expt
-;;     (restore continue)
-;;     (restore n)
-;;     (assign val (op *) (reg b) (reg val)) ;val = b * (expt b (- n 1))
-;;     (goto (reg continue))
-;;     expt-done))
-
-;; (define insts
-;;   '(((test (op =) (reg n) (const 0)))
-;;   ((branch (label expt-base)))
-;;   ((save n))
-;;   ((save continue))
-;;   ((assign n (op -) (reg n) (cons 1)))
-;;   ((assign continue (label after-expt)))
-;;   ((goto (label expt-loop)))
-;;   ((assign val (const 1)))
-;;   ((goto (reg continue)))
-;;   ((restore continue))
-;;   ((restore n))
-;;   ((assign val (op *) (reg b) (reg val)))
-;;   ((goto (reg continue)))))
-
-;; (define labels
-;;   '((expt-loop
-;;      ((test (op =) (reg n) (const 0)))
-;;      ((branch (label expt-base)))
-;;      ((save n))
-;;      ((save continue))
-;;      ((assign n (op -) (reg n) (cons 1)))
-;;      ((assign continue (label after-expt)))
-;;      ((goto (label expt-loop)))
-;;      ((assign val (const 1)))
-;;      ((goto (reg continue)))
-;;      ((restore continue))
-;;      ((restore n))
-;;      ((assign val (op *) (reg b) (reg val)))
-;;      ((goto (reg continue))))
-;;     (expt-base
-;;      ((assign val (const 1)))
-;;      ((goto (reg continue)))
-;;      ((restore continue))
-;;      ((restore n))
-;;      ((assign val (op *) (reg b) (reg val)))
-;;      ((goto (reg continue))))
-;;     (after-expt ((restore continue)) ((restore n)) ((assign val (op *) (reg b) (reg val))) ((goto (reg continue))))
-;;     (expt-done)))
-
-
+;;; Assemble controller text into instructions, and create
+;;; a label table to associate each label with corresponding
+;;; instructions.
+;;; Each instruction is a pair of <text> and <procedure>.
 (define (assemble controller-text machine)
   (extract-labels controller-text
                   (lambda (insts labels)
                     (update-insts! insts labels machine)
                     insts)))
 
+;;; Create an initial instructions from text and a label table.
+;;; A *receive* function is used to update the instructions
+;;; to add the appropriate procedure.
 (define (extract-labels text receive)
   (if (null? text)
       (receive '() '())
@@ -221,18 +180,7 @@
                    (cons (make-instruction next-inst) insts)
                    labels)))))))
 
-(define (make-label-entry label-name insts)
-  (cons label-name insts))
-
-(define (make-instruction text)
-  (cons text '()))
-(define (set-instruction-execution-proc! inst proc)
-  (set-cdr! inst proc))
-(define (instruction-text inst)
-  (car inst))
-(define (instruction-execution-proc inst)
-  (cdr inst))
-
+;;; update initial instructions to add appropriate procedures
 (define (update-insts! insts labels machine)
   (let ((pc (get-register machine 'pc))
         (flag (get-register machine 'flag))
@@ -252,9 +200,24 @@
          ops)))
      insts)))
 
+;;; the label entry constructor
+(define (make-label-entry label-name insts)
+  (cons label-name insts))
 
-;;;
-;;; make different (assign/goto/branch...) instruction procedure
+;;; the instruction constructor
+(define (make-instruction text)
+  (cons text '()))
+
+;;; the instruction selectors and mutators
+(define (set-instruction-execution-proc! inst proc)
+  (set-cdr! inst proc))
+(define (instruction-text inst)
+  (car inst))
+(define (instruction-execution-proc inst)
+  (cdr inst))
+
+;;; make appropriate procedure according to the instruction type
+;;; same as *eval*
 (define (make-execution-procedure inst-text labels machine pc flag stack ops)
   ;; (set-contents! pc (cdr (get-contents pc)))
   (cond ((eq? (car inst-text) 'assign)
@@ -263,8 +226,7 @@
         (else
          (error "Unknown instruction type: ASSEMBLE" inst-text))))
 
-;;; instruction ... -> λ
-;;; make assignment instruction procedure
+;;; make procedure for assignment instruction
 (define (make-assign inst machine labels ops pc)
   (let ((target (get-register machine (assign-reg-name inst)))
         (value-exp (assign-value-exp inst)))
@@ -274,7 +236,7 @@
                 value-exp 
                 machine
                 labels
-                operations)
+                ops)
                (make-primitive-exp
                 (car value-exp)
                 machine
@@ -283,16 +245,18 @@
         (set-contents! target (value-proc))
         (advance-pc pc)))))
 
+;;; assignment instruction selectors
 (define (assign-reg-name assign-instruction)
   (cadr assign-instruction))
 (define (assign-value-exp assign-instruction)
   (cddr assign-instruction))
 
+;;; advance program counter by one
 (define (advance-pc pc)
   (set-contents! pc (cdr (get-contents pc))))
 
 
-;;; Primitive assign
+;;; make procedure for primitive expressions
 ;;;assign-inst: (assign val (const 1))
 ;;;assign-reg-name: val
 ;;;assign-value-exp: ((const 1))
@@ -303,10 +267,13 @@
   (cond ((constant-exp? exp)            ;input: (const 1)
          (let ((c (const-exp-value exp))) ;ret: λ
            (lambda () c)))
+        ;; TOOD: label exp
         ((register-exp? exp)            ;input: (reg a)
          (let ((r (get-register machine (register-exp-reg exp))))
            (lambda () (get-contents r)))) ;ret: λ
         (else (error "Unkown expression type: ASSEMBLE" exp))))
+
+;;; primitive expression selectors
 (define (constant-exp? exp)
   (tagged-list? exp 'const))
 (define (const-exp-value exp)
@@ -315,8 +282,23 @@
   (tagged-list? exp 'reg))
 (define (register-exp-reg exp)
   (cadr exp))
+(define (label-exp? exp)
+  (tagged-list? exp 'label))
 
-;;; Operational assign
+;;; make procedure for operational (non-primitive) expressions
+(define (make-operation-exp exp machine labels operations)
+  (let ((op (lookup-prim (operation-exp-op exp) operations))
+        (aprocs
+         (map
+          (lambda (e)
+            (if (label-exp? e)
+                (error "Operations can be used with "
+                       "registers and constants: ASSEMBLE" exp)
+                (make-primitive-exp e machine labels)))
+          (operation-exp-operands exp))))
+    (lambda () (apply op (map (lambda (p) (p)) aprocs)))))
+
+;;; operational expression selectors
 ;;;assign-inst: (assign val (op *) (reg b) (reg val))
 ;;;assign-reg-name: val
 ;;;assign-value-exp: ((op *) (reg b) (reg val))
@@ -328,21 +310,13 @@
 (define (operation-exp-operands operation-exp) ;input: ((op *) (reg b) (reg val))
   (cdr operation-exp))                  ;ret: ((reg b) (reg val))
 
-(define (make-operation-exp exp machine labels operations)
-  (let ((op (lookup-prim (operation-exp-op exp) operations))
-        (aprocs
-         (map
-          (lambda (e) (make-primitive-exp e machine labels))
-          (operation-exp-operands exp))))
-    (lambda () (apply op (map (lambda (p) (p)) aprocs)))))
 
-
-;;; op-symbol (listof (op-symbol λ)) -> λ
-;;; lookup primitive operation name in operation table
+;;; lookup-prim: Sym x (listof (Sym λ)) -> λ
+;;; look up primitive operation procedure in the operation table
 (define (lookup-prim op operations)
   (cond ((null? operations)
          (error "Unknown operation: ASSEMBLE" op))
         ((eq? op (caar operations))
-         (cdar operations))
+         (cadar operations))
         (else
          (lookup-prim op (cdr operations)))))

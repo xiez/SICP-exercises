@@ -2,11 +2,7 @@
 
 ;;; exports
 (#%require racket/base)
-(provide tagged-list?)
-(provide lookup-prim)
-(provide make-operation-exp)
-(provide operation-exp-operands)
-(provide make-stack)
+(provide (all-defined-out))
 
 ;;; utils
 (define (tagged-list? x sym)
@@ -14,7 +10,7 @@
 
 ;;; the general machine constructor
 (define (make-machine register-names
-                      ops 
+                      ops
                       controller-text)
   (let ((machine (make-new-machine)))
     (for-each (lambda (register-name)
@@ -204,6 +200,14 @@
 (define (make-label-entry label-name insts)
   (cons label-name insts))
 
+;;; labels selector
+(define (lookup-label labels label-name)
+  (if (null? labels)
+      (error "Undefined label: ASSEMBLE" label-name)
+      (if (equal? (caar labels) label-name)
+          (cdar labels)
+          (lookup-label (cdr labels) label-name))))
+
 ;;; the instruction constructor
 (define (make-instruction text)
   (cons text '()))
@@ -223,6 +227,15 @@
   (cond ((eq? (car inst-text) 'assign)
          (make-assign
           inst-text machine labels ops pc))
+        ((eq? (car inst-text) 'test)
+         (make-test
+          inst-text machine labels ops flag pc))
+        ((eq? (car inst-text) 'branch)
+         (make-branch
+          inst-text machine labels ops flag pc))
+        ((eq? (car inst-text) 'goto)
+         (make-goto
+          inst-text machine labels ops flag pc))
         (else
          (error "Unknown instruction type: ASSEMBLE" inst-text))))
 
@@ -245,11 +258,75 @@
         (set-contents! target (value-proc))
         (advance-pc pc)))))
 
+;; make procedure for test instruction
+(define (make-test inst machine labels ops flag pc)
+  (let ((condition (test-condition inst)))
+    (if (operation-exp? condition)
+        (let ((condition-proc
+               (make-operation-exp
+                condition
+                machine
+                labels
+                ops)))
+          (lambda ()
+            (set-contents!
+             flag
+             (condition-proc))
+            (advance-pc pc)))
+        (error "Bad Test instruction: ASSEMBLE" inst))))
+
+;; make procedure for branch instruction
+(define (make-branch inst machine labels ops flag pc)
+  (let ((dest (branch-dest inst)))
+    (if (label-exp? dest)
+        (let ((insts
+               (lookup-label
+                labels
+                (label-exp-label dest))))
+          (lambda ()
+            (if (get-contents flag)
+                (set-contents! pc insts)
+                (advance-pc pc))))
+        (error "Bad Branch instruction: ASSEMBLE" inst))))
+
+;; make procedure for goto instruction
+(define (make-goto inst machine labels ops flag pc)
+  (let ((dest (goto-dest inst)))
+    (cond
+     ((label-exp? dest)
+      (let ((insts
+             (lookup-label labels
+                           (label-exp-label dest))))
+        (lambda ()
+          (set-contents! pc insts))))
+     ((register-exp? dest)
+      (let ((reg
+             (get-register
+               machine (register-exp-reg dest))))
+        (lambda ()
+          (set-contents!
+           pc
+           (get-contents reg)))))
+     (else (error "Bad GOTO instruction: ASSEMBLE" inst)))))
+
+
 ;;; assignment instruction selectors
-(define (assign-reg-name assign-instruction)
-  (cadr assign-instruction))
+  (define (assign-reg-name assign-instruction)
+    (cadr assign-instruction))
 (define (assign-value-exp assign-instruction)
   (cddr assign-instruction))
+
+;; test instruction selectors
+(define (test-condition test-instruction)
+  (cdr test-instruction))
+
+;;; branch instruction selectors
+(define (branch-dest inst)
+  (cadr inst))
+
+;;; goto instruction selectors
+(define (goto-dest inst)
+  (cadr inst))
 
 ;;; advance program counter by one
 (define (advance-pc pc)
@@ -257,17 +334,16 @@
 
 
 ;;; make procedure for primitive expressions
-;;;assign-inst: (assign val (const 1))
-;;;assign-reg-name: val
-;;;assign-value-exp: ((const 1))
-;;; or
-;;;assign-inst: (assign val (reg a))
-;;;assign-value-exp: ((reg a))
 (define (make-primitive-exp exp machine labels)
   (cond ((constant-exp? exp)            ;input: (const 1)
          (let ((c (const-exp-value exp))) ;ret: λ
            (lambda () c)))
-        ;; TOOD: label exp
+        ((label-exp? exp)
+         (let ((insts (lookup-label
+                       labels
+                       (label-exp-label exp)
+                       )))
+           (lambda () insts)))
         ((register-exp? exp)            ;input: (reg a)
          (let ((r (get-register machine (register-exp-reg exp))))
            (lambda () (get-contents r)))) ;ret: λ
@@ -284,6 +360,8 @@
   (cadr exp))
 (define (label-exp? exp)
   (tagged-list? exp 'label))
+(define (label-exp-label exp)
+  (cadr exp))
 
 ;;; make procedure for operational (non-primitive) expressions
 (define (make-operation-exp exp machine labels operations)

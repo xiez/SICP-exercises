@@ -136,8 +136,6 @@
             #f
             )
 
-
-
            )
 
 (test-case "make-primitive-exp"
@@ -198,24 +196,27 @@
                done
                (goto (reg b))))
 
-           (let ((receive-insts (lambda (a b) a)))
+           (let ((receive-insts (lambda (insts labels) insts)))
              (check-equal?
               (extract-labels
                text
                receive-insts)
-              '(((assign a (const 1))) ((goto (reg b))))))
+              '(
+                ((assign a (const 1)) . *unset-proc*)
+                ((goto (reg b)) . *unset-proc*)
+                )))
 
-           (let ((receive-labels (lambda (a b) b)))
+           (let ((receive-labels (lambda (insts labels) labels)))
              (check-equal?
              (extract-labels
               text
               receive-labels)
              '(
                (controller
-                ((assign a (const 1)))
-                ((goto (reg b))))
-               (done
-                ((goto (reg b)))))))
+                ((assign a (const 1)) . *unset-proc*)
+                ((goto (reg b)) . *unset-proc*))
+               (done ((goto (reg b)) . *unset-proc*)))
+             ))
 
            )
 

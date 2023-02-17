@@ -154,7 +154,7 @@
                     (update-insts! insts labels machine)
                     insts)))
 
-;;; Create an initial instructions from text and a label table.
+;;; Create an initial instructions and a label table.
 ;;; A *receive* function is used to update the instructions
 ;;; to add the appropriate procedure.
 (define (extract-labels text receive)
@@ -184,6 +184,7 @@
         (ops (machine 'operations)))
     (for-each
      (lambda (inst)
+       (display inst)
        (set-instruction-execution-proc!
         inst
         (make-execution-procedure
@@ -210,7 +211,9 @@
 
 ;;; the instruction constructor
 (define (make-instruction text)
-  (cons text '()))
+  (cons text '*unset-proc*)
+  ;; (cons text '())
+  )
 
 ;;; the instruction selectors and mutators
 (define (set-instruction-execution-proc! inst proc)
@@ -398,3 +401,6 @@
          (cadar operations))
         (else
          (lookup-prim op (cdr operations)))))
+
+;;; test
+

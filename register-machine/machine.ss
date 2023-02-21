@@ -1,9 +1,5 @@
 #lang sicp
 
-;;; exports
-(#%require racket/base)
-(provide (all-defined-out))
-
 ;;; utils
 (define (tagged-list? x sym)
   (equal? sym (car x)))
@@ -70,6 +66,11 @@
              (error "Unknown request: STACK"
                     message))))
     dispatch))
+;;; stack shortcut functions
+(define (push stack content)
+  ((stack 'push) content))
+(define (pop stack)
+  (stack 'pop))
 
 ;;; a customize machine constructor
 (define (make-new-machine)
@@ -184,7 +185,7 @@
         (ops (machine 'operations)))
     (for-each
      (lambda (inst)
-       (display inst)
+       ;; (display inst)
        (set-instruction-execution-proc!
         inst
         (make-execution-procedure
@@ -239,6 +240,15 @@
         ((eq? (car inst-text) 'goto)
          (make-goto
           inst-text machine labels ops flag pc))
+        ((eq? (car inst-text) 'save)
+         (make-save
+          inst-text machine stack pc))
+        ((eq? (car inst-text) 'restore)
+         (make-restore
+          inst-text machine stack pc))
+        ((eq? (car inst-text) 'perform)
+         (make-perform
+          inst-text machine labels ops pc))
         (else
          (error "Unknown instruction type: ASSEMBLE" inst-text))))
 
@@ -312,6 +322,39 @@
            (get-contents reg)))))
      (else (error "Bad GOTO instruction: ASSEMBLE" inst)))))
 
+;; make procedure for save instruction
+(define (make-save inst machine stack pc)
+  (let ((reg (get-register
+              machine
+              (stack-inst-reg-name inst))))
+    (lambda ()
+      (push stack (get-contents reg))
+      (advance-pc pc))))
+
+;; make procedure for restore instruction
+(define (make-restore inst machine stack pc)
+  (let ((reg (get-register
+              machine
+              (stack-inst-reg-name inst))))
+    (lambda ()
+      (set-contents! reg (pop stack))
+      (advance-pc pc))))
+
+;; make procedure for perform instruction
+(define (make-perform inst machine labels ops pc)
+  (let ((action (perform-action inst)))
+    (if (operation-exp? action)
+        (let ((action-proc
+               (make-operation-exp
+                action
+                machine
+                labels
+                ops)))
+          (lambda ()
+            (action-proc)
+            (advance-pc pc)))
+        (error "Bad PERFORM instruction: ASSEMBL" inst))))
+
 
 ;;; assignment instruction selectors
   (define (assign-reg-name assign-instruction)
@@ -330,6 +373,15 @@
 ;;; goto instruction selectors
 (define (goto-dest inst)
   (cadr inst))
+
+;;; save instruction selectors
+(define (stack-inst-reg-name inst)
+  (cadr inst))
+
+
+;;; perform instruction selectors
+(define (perform-action inst)
+  (cdr inst))
 
 ;;; advance program counter by one
 (define (advance-pc pc)
@@ -402,5 +454,154 @@
         (else
          (lookup-prim op (cdr operations)))))
 
-;;; test
+;;; exports
+;; (#%require racket/base)
+;; (provide (all-defined-out))
+
+;;; -------------------- test cases --------------------
+
+;;; iterative expt machine
+(let ((controller-text
+       '(controller
+         (assign b (const 2))                ;base = 2
+         (assign counter (const 10))         ;counter = n
+         (assign product (const 1))          ;product = 1
+         expt-loop
+         (test (op =) (reg counter) (const 0))
+         (branch (label expt-done))
+         (assign counter (op -) (reg counter) (const 1)) ;counter = counter - 1
+         (assign product (op *) (reg b) (reg product)) ;product = product * b
+         (goto (label expt-loop))
+         expt-done
+         )
+       )
+      (registers '(b counter product))
+      (ops (list
+            (list '= =)
+            (list '- -)
+            (list '* *))))
+
+  (define machine
+    (make-machine registers ops controller-text))
+  (machine 'start)
+  (let ((res (get-register-contents
+              machine
+              'product)))
+
+    (if (= 1024 res)
+        (display "OK: iterative expt-machine result is 1024 \n")
+        (error "Error: expt-machine result is " res)))
+  )
+
+;;; recursive expt machine
+(let ((controller-text
+       '(controller
+         (assign continue (label expt-done))
+         (assign n (const 10))
+         (assign b (const 2))
+         expt-loop
+         (test (op =) (reg n) (const 0))
+         (branch (label expt-base))
+         (save n)
+         (save continue)
+         (assign n (op -) (reg n) (const 1))     ;n = n -1
+         (assign continue (label after-expt))
+         (goto (label expt-loop))
+         expt-base
+         (assign val (const 1))                 ;val = 1
+         (goto (reg continue))
+         after-expt
+         (restore continue)
+         (restore n)
+         (assign val (op *) (reg b) (reg val))   ;val = b * (expt b (- n 1))
+         (goto (reg continue))
+         expt-done
+         )
+       )
+      (registers '(continue b n val))
+      (ops (list
+            (list '= =)
+            (list '- -)
+            (list '* *))))
+
+  (define machine
+    (make-machine registers ops controller-text))
+  (machine 'start)
+
+  (let ((res (get-register-contents
+              machine
+              'val)))
+    (if (= 1024 res)
+        (display "OK: recursive expt-machine result is 1024 \n")
+        (error "Error: expt-machine result is " res)))  
+  )
+
+(let* ((controller-text
+        '(sqrt-loop
+          (assign x (op read))
+          (assign guess (const 1.0))
+          test-guess
+          (test (op good-enough?) (reg guess) (reg x))
+          (branch (label done))
+          (assign guess (op improve) (reg guess) (reg x))
+          (goto (label test-guess))
+          done
+          (perform (op print) (reg guess)))
+        )
+       (registers '(x guess))
+       (good-enough? (lambda (guess val)
+                       (display (string-append
+                               "guess: " (number->string guess)
+                               " val:" (number->string val) "\n"))
+                       (<
+                        (abs (- (* guess guess) val) )
+                        0.001)))
+       (improve (lambda (guess val)
+                  (/
+                   (+ guess
+                      (/ val guess))
+                   2)))
+       (ops (list
+             (list 'good-enough? good-enough?)
+             (list 'improve improve)
+             (list 'print display)
+             (list 'read read))))
+
+  (define machine
+    (make-machine registers ops controller-text))
+  (machine 'start))
+
+
+(let ((controller-text
+        '(controller
+          (assign x (op read))
+          (assign guess (const 1.0))
+
+          sqrt-loop
+          (assign a (op square) (reg guess))     ;square is considered as a primitive op
+          (assign a (op -) (reg a) (reg x))
+          (assign a (op abs) (reg a))
+          (test (op <) (reg a) (const 0.001))    ;if good-enough?, goto done with result in reg guess
+          (branch (label done))
+          (assign a (op /) (reg x) (reg guess))  ;otherwise, improve guess
+          (assign guess (op average) (reg guess) (reg a))
+          (goto (label sqrt-loop))
+
+          done
+          (perform (op print) (reg guess)))
+        )
+       (registers '(a x guess))
+       (ops (list
+             (list '- -)
+             (list '/ /)
+             (list '< <)
+             (list 'abs abs)
+             (list 'average (lambda (a b) (/ (+ a b) 2)))
+             (list 'square (lambda (x) (* x x)))
+             (list 'print display)
+             (list 'read read))))
+
+  (define machine
+    (make-machine registers ops controller-text))
+  (machine 'start))
 

@@ -2,13 +2,34 @@
 # code format: black machine.py
 # type check: mypy machine.py
 
+import argparse
 import logging
 from abc import ABC
 from typing import List, Any, Tuple, Callable, Dict
 
+# get logging level from command line
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "-l",
+    "--log",
+    default="warning",
+    help=(
+        "Provide logging level. "
+        "Example --log debug', default='warning'"),
+)
+options = parser.parse_args()
+levels = {
+    'critical': logging.CRITICAL,
+    'error': logging.ERROR,
+    'warn': logging.WARNING,
+    'warning': logging.WARNING,
+    'info': logging.INFO,
+    'debug': logging.DEBUG
+}
+level = levels.get(options.log.lower())
 logging.basicConfig(
     format="%(asctime)s %(levelname)s: %(message)s",
-    level=logging.WARN,
+    level=level,
 )
 
 
@@ -171,7 +192,7 @@ class BaseMachine(ABC):
 
         next_inst = insts[0]
         self.cycle_counter += 1
-        logging.debug(
+        logging.info(
             f"executing next instruction: {next_inst}, cycle counter: {self.cycle_counter} "
         )
 

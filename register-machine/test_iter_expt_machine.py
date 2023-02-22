@@ -15,5 +15,5 @@ controller_text = get_controller_text(__file__)
 expt_machine = Machine(regs, ops, controller_text, name='iterative expt machine')
 expt_machine.start()
 res = expt_machine.get_register("product").get_contents()
-print("result: ", res)
+print("2 ** 10: ", res)
 assert res == 1024

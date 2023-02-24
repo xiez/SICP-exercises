@@ -54,7 +54,8 @@ class Instruction:
         self.execution_proc = proc
 
     def __repr__(self):
-        return f"{self.text}-{self.execution_proc}"
+        # return f"{self.text}-{self.execution_proc}"
+        return '(' + ' '.join([str(x) for x in self.text]) + ')'
 
 
 class LabelTable:
@@ -129,7 +130,8 @@ class Stack:
             raise Exception("Empty stack: POP")
 
     def __repr__(self):
-        val = "bottom -> top: "
+        cnt = len(self.lst)
+        val = f"bottom -> top (length: {cnt}): "
         for e in self.lst:
             if isinstance(e, list):
                 val += f", {e[:1]}"
@@ -332,6 +334,10 @@ class BaseMachine(ABC):
             return self._make_restore(inst, labels)
         elif inst_type == "perform":
             return self._make_perform(inst, labels)
+        elif inst_type == "interrupt":
+            def f():
+                raise Exception("interrupt..")
+            return f
         else:
             assert False, f"TODO: {inst_type}"
 

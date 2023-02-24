@@ -17,10 +17,10 @@
  rem-loop
  (test (op <) (reg a) (reg b))
  (branch (label rem-base))
- (save a)                               ;save parameters and retaddr to the stack
- (save b)
- (save continue)                        ;set up for the recursive call
- (assign continue (label after-rem))    ;by saving the continue
+ (save a)                               ;set up for the recursive call
+ (save b)                               ;by saving parameters and retaddr
+ (save continue)                        ;to the stack
+ (assign continue (label after-rem))    ;
  (assign a (op -) (reg a) (reg b))      ;a <- a - b
  (goto (label rem-loop))
  after-rem

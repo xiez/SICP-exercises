@@ -1,3 +1,4 @@
+;;; textbook version of fib from Figure 5.12
 (controller
  (assign n (const 8))
  (assign continue (label fib-done))

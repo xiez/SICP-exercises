@@ -15,8 +15,8 @@ ops = [
     ['good-enough?', is_good_enough],
     ['improve', improve],
     ['print', print],
-    ['read', lambda: int(input('Enter a number: '))],
+    ['read', lambda: int(input('(Sqrt) Enter a number: '))],
 ]
 
-sqrt_machine = Machine(regs, ops, controller_text, name='sqrt machine')
+sqrt_machine = Machine(ops, controller_text, name='sqrt machine')
 sqrt_machine.start()

@@ -5,14 +5,15 @@
   (equal? sym (car x)))
 
 ;;; the general machine constructor
-(define (make-machine register-names
-                      ops
-                      controller-text)
+(define (make-machine
+         ;; register-names
+         ops
+         controller-text)
   (let ((machine (make-new-machine)))
-    (for-each (lambda (register-name)
-                ((machine 'allocate-register) 
-                 register-name))
-              register-names)
+    ;; (for-each (lambda (register-name)
+    ;;             ((machine 'allocate-register) 
+    ;;              register-name))
+    ;;           register-names)
     ((machine 'install-operations) ops)
     ((machine 'install-instruction-sequence)
      (assemble controller-text machine))
@@ -86,12 +87,14 @@
                  (list 'flag flag))))
       (define (allocate-register name)
         (if (assoc name register-table)
-            (error "Multiply defined register: " name)
-            (set! register-table
-                  (cons 
-                   (list name (make-register name))
-                   register-table)))
-        'register-allocated)
+            ;; (error "Multiply defined register: " name)
+            (lookup-register name)
+            (let ((register (make-register name)))
+              (set! register-table
+                    (cons 
+                     (list name register)
+                     register-table))
+              register)))
       (define (lookup-register name)
         (let ((val (assoc name register-table)))
           (if val
@@ -143,6 +146,8 @@
 (define (get-register machine reg-name)
   ((machine 'get-register) reg-name))
 
+(define (allocate-register machine reg-name)
+  ((machine 'allocate-register) reg-name))
 ;;; the assembler ;;;;;;;;;;;;;;;;;;;;
 
 ;;; Assemble controller text into instructions, and create
@@ -254,7 +259,7 @@
 
 ;;; make procedure for assignment instruction
 (define (make-assign inst machine labels ops pc)
-  (let ((target (get-register machine (assign-reg-name inst)))
+  (let ((target (allocate-register machine (assign-reg-name inst)))
         (value-exp (assign-value-exp inst)))
     (let ((value-proc
            (if (operation-exp? value-exp)
@@ -324,7 +329,7 @@
 
 ;; make procedure for save instruction
 (define (make-save inst machine stack pc)
-  (let ((reg (get-register
+  (let ((reg (allocate-register
               machine
               (stack-inst-reg-name inst))))
     (lambda ()
@@ -400,7 +405,7 @@
                        )))
            (lambda () insts)))
         ((register-exp? exp)            ;input: (reg a)
-         (let ((r (get-register machine (register-exp-reg exp))))
+         (let ((r (allocate-register machine (register-exp-reg exp))))
            (lambda () (get-contents r)))) ;ret: λ
         (else (error "Unkown expression type: ASSEMBLE" exp))))
 
@@ -475,14 +480,14 @@
          expt-done
          )
        )
-      (registers '(b counter product))
+      ;; (registers '(b counter product))
       (ops (list
             (list '= =)
             (list '- -)
             (list '* *))))
 
   (define machine
-    (make-machine registers ops controller-text))
+    (make-machine ops controller-text))
   (machine 'start)
   (let ((res (get-register-contents
               machine
@@ -525,7 +530,7 @@
             (list '* *))))
 
   (define machine
-    (make-machine registers ops controller-text))
+    (make-machine ops controller-text))
   (machine 'start)
 
   (let ((res (get-register-contents
@@ -569,7 +574,7 @@
              (list 'read read))))
 
   (define machine
-    (make-machine registers ops controller-text))
+    (make-machine ops controller-text))
   (machine 'start))
 
 ;;; sqrt machine 2
@@ -603,16 +608,10 @@
              (list 'read read))))
 
   (define machine
-    (make-machine registers ops controller-text))
+    (make-machine ops controller-text))
   (machine 'start))
 
 ;;; fib machine
-;; (define (fib n)
-;;   (if (< n 2)
-;;       n
-;;       (+ (fib (- n 1)) (fib (- n 2)) )))
-;;;
-
 (let ((controller-text
        '(controller
          (assign n (const 20))
@@ -661,7 +660,7 @@
             (list '- -)
             (list '+ +))))
   (define machine
-    (make-machine registers ops controller-text))
+    (make-machine ops controller-text))
   (machine 'start)
 
   (let ((res (get-register-contents

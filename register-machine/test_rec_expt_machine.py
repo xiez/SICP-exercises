@@ -12,7 +12,7 @@ ops = [
 ]
 controller_text = get_controller_text(__file__)
 
-expt_machine = Machine(regs, ops, controller_text, name='recurive expt machine')
+expt_machine = Machine(ops, controller_text, name='recurive expt machine')
 expt_machine.start()
 res = expt_machine.get_register("val").get_contents()
 print("2 ** 10: ", res)

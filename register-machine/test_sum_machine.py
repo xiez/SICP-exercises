@@ -3,7 +3,7 @@ import operator as op
 from machine import Machine
 from utils import get_controller_text
 
-regs = ['continue', 'n', 'val']
+# regs = ['continue', 'n', 'val']
 ops = [
     ["=", op.eq],
     ["-", op.sub],
@@ -12,7 +12,7 @@ ops = [
 ]
 controller_text = get_controller_text(__file__)
 
-machine = Machine(regs, ops, controller_text, name='counter machine')
+machine = Machine(ops, controller_text, name='sum machine')
 machine.start()
 res = machine.get_register("val").get_contents()
 print("1 + 2 + .. + 10: ", res)

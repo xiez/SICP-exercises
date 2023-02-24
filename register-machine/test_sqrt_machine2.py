@@ -8,7 +8,7 @@ regs = ['a', 'x', 'guess']
 controller_text = get_controller_text(__file__)
 ops = [
     ['print', print],
-    ['read', lambda: int(input('Enter a number: '))],
+    ['read', lambda: int(input('(Sqrt) Enter a number: '))],
     ['square', lambda x: x * x],
     ["-", op.sub],
     ["/", op.truediv],
@@ -17,5 +17,5 @@ ops = [
     ['average', lambda a, b: (a + b) / 2],
 ]
 
-sqrt_machine = Machine(regs, ops, controller_text, name='sqrt machine2')
+sqrt_machine = Machine(ops, controller_text, name='sqrt machine2')
 sqrt_machine.start()

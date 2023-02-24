@@ -11,7 +11,7 @@ ops = [
     ["*", op.mul],
 ]
 
-machine = Machine(regs, ops, controller_text, name='square machine')
+machine = Machine(ops, controller_text, name='square machine')
 machine.start()
 res = machine.get_register("n").get_contents()
 print("4 ** 2: ", res)

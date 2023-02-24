@@ -213,9 +213,12 @@ class BaseMachine(ABC):
     def allocate_register(self, name):
         """Allocate a new register to the register table."""
         if name in self.register_table:
-            raise Exception(f"Multiply defined register: {name}")
-        self.register_table[name] = Register(name)
+            # raise Exception(f"Multiply defined register: {name}")
+            return self.get_register(name)
+        register = Register(name)
+        self.register_table[name] = register
         logging.debug(f"alocate_register: {name}")
+        return register
 
     def get_register(self, name):
         try:
@@ -373,7 +376,7 @@ class BaseMachine(ABC):
 
     def _make_assign(self, inst: List, labels: LabelTable) -> Callable:
         """Make an assignment instruction procedure."""
-        target = self.get_register(assign_reg_name(inst))
+        target = self.allocate_register(assign_reg_name(inst))
         value_exp = assign_value_exp(inst)
 
         if is_operation_exp(value_exp):
@@ -407,7 +410,7 @@ class BaseMachine(ABC):
 
     def _make_save(self, inst: List, labels: LabelTable) -> Callable:
         """make a save instruction procedure."""
-        reg = self.get_register(stack_inst_reg_name(inst))
+        reg = self.allocate_register(stack_inst_reg_name(inst))
 
         def f():
             self.stack.push(reg.get_contents())
@@ -445,15 +448,15 @@ class Machine(BaseMachine):
 
     def __init__(
         self,
-        register_names: List[str],
+        # register_names: List[str],
         ops: List,
         controller_text: List,
         name="",
     ):
         super().__init__()
 
-        for rn in register_names:
-            self.allocate_register(rn)
+        # for rn in register_names:
+        #     self.allocate_register(rn)
         self.install_operations(ops)
         self.install_instruction_sequence(self.assemble(controller_text))
         self.name = name
@@ -570,7 +573,7 @@ def make_primitive_exp(exp: List, machine: BaseMachine, labels: LabelTable) -> C
         return lambda: insts
     elif is_register_exp(exp):
         reg = register_exp_reg(exp)
-        r = machine.get_register(reg)
+        r = machine.allocate_register(reg)
         return lambda: r.get_contents()
     else:
         raise Exception(f"Unknown exression type: {exp}")

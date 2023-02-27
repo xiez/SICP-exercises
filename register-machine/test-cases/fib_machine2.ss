@@ -50,5 +50,6 @@
  ;; end fib
 
  fib-done
- (perform (op print) (reg retval))
+ ;; (perform (op print) (reg retval))
+ (perform (op print-stack-statistics))
  )

@@ -114,6 +114,9 @@ class Stack:
 
     def __init__(self):
         self.lst = None
+        self.number_pushes = 0
+        self.max_depth = 0
+        self.current_depth = 0
 
     def initialize(self):
         self.lst = []
@@ -121,13 +124,21 @@ class Stack:
     def push(self, x: Any):
         assert self.lst is not None, "Stack not initialized."
         self.lst.append(x)
+        self.number_pushes += 1
+        self.max_depth += 1
+        self.current_depth = max(self.max_depth, self.current_depth)
 
     def pop(self):
         assert self.lst is not None, "Stack not initialized."
         try:
-            return self.lst.pop()
+            val = self.lst.pop()
+            self.current_depth -= 1
+            return val
         except IndexError:
             raise Exception("Empty stack: POP")
+
+    def print_statistics(self):
+        print(f"total-pushes={self.number_pushes}, maximum-depth={self.max_depth}")
 
     def __repr__(self):
         cnt = len(self.lst)
@@ -152,7 +163,10 @@ class BaseMachine(ABC):
         self.stack = Stack()
         self.stack.initialize()
         self.instruction_sequence = []
-        self.operations = [["initialize-stack", self.stack.initialize]]
+        self.operations = [
+            ["initialize-stack", self.stack.initialize],
+            ["print-stack-statistics", self.stack.print_statistics],
+        ]
         self.register_table = {
             "pc": self._pc,
             "flag": self._flag,

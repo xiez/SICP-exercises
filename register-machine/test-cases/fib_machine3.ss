@@ -40,4 +40,6 @@
  (assign val 
          (reg n))                       ; base case: Fib(n) = n
  (goto (reg continue))
- fib-done)
+ fib-done
+ (perform (op print-stack-statistics))
+ )

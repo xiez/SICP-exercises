@@ -41,9 +41,16 @@
 
 ;;; the stack constructor
 (define (make-stack)
-  (let ((s '()))
+  (let (
+        (s '())
+        (number-pushes 0)
+        (max-depth 0)
+        (current-depth 0))
     (define (push x)
-      (set! s (cons x s)))
+      (set! s (cons x s))
+      (set! number-pushes (+ 1 number-pushes))
+      (set! current-depth (+ 1 current-depth))
+      (set! max-depth (max max-depth current-depth)))
     (define (top)
       (if (null? s)
           '()
@@ -53,16 +60,28 @@
           (error "Empty stack: POP")
           (let ((top (car s)))
             (set! s (cdr s))
+            (set! current-depth (- current-depth 1))
             top)))
     (define (initialize)
       (set! s '())
       'done)
+    (define (print-statistics)
+      (newline)
+      (display (list 'total-pushes 
+                     '= 
+                     number-pushes
+                     'maximum-depth
+                     '=
+                     max-depth))
+      (newline))
     (define (dispatch message)
       (cond ((eq? message 'push) push)
             ((eq? message 'pop) (pop))
             ((eq? message 'top) (top))
             ((eq? message 'initialize)
              (initialize))
+            ((eq? message 'print-statistics)
+             (print-statistics))
             (else 
              (error "Unknown request: STACK"
                     message))))
@@ -81,51 +100,53 @@
         (the-instruction-sequence '()))
     (let ((the-ops
            (list 
-            (list 'initialize-stack (lambda () (stack 'initialize)))))
+            (list 'initialize-stack (lambda () (stack 'initialize)))
+            (list 'print-stack-statistics (lambda () (stack 'print-statistics)))
+            ))
           (register-table
            (list (list 'pc pc) 
                  (list 'flag flag))))
-      (define (allocate-register name)
-        (if (assoc name register-table)
-            ;; (error "Multiply defined register: " name)
-            (lookup-register name)
-            (let ((register (make-register name)))
-              (set! register-table
-                    (cons 
-                     (list name register)
-                     register-table))
-              register)))
-      (define (lookup-register name)
-        (let ((val (assoc name register-table)))
-          (if val
-              (cadr val)
-              (error "Unknown register:" name))))
-      (define (execute)
-        (let ((insts (get-contents pc)))
-          (if (null? insts)
-              'done
-              (begin
-                ((instruction-execution-proc 
-                  (car insts)))
-                (execute)))))
-      (define (dispatch message)
-        (cond ((eq? message 'start)
-               (set-contents! pc the-instruction-sequence)
-               (execute))
-              ((eq? message 'install-instruction-sequence)
-               (lambda (seq) 
-                 (set! the-instruction-sequence seq)))
-              ((eq? message 'allocate-register)
-               allocate-register)
-              ((eq? message 'get-register) 
-               lookup-register)
-              ((eq? message 'install-operations)
-               (lambda (ops) 
-                 (set! the-ops (append the-ops ops))))
-              ((eq? message 'stack) stack)
-              ((eq? message 'operations) the-ops)
-              (else (error "Unknown request: MACHINE" message))))
-      dispatch)))
+    (define (allocate-register name)
+      (if (assoc name register-table)
+          ;; (error "Multiply defined register: " name)
+          (lookup-register name)
+          (let ((register (make-register name)))
+            (set! register-table
+                  (cons 
+                   (list name register)
+                   register-table))
+            register)))
+    (define (lookup-register name)
+      (let ((val (assoc name register-table)))
+        (if val
+            (cadr val)
+            (error "Unknown register:" name))))
+    (define (execute)
+      (let ((insts (get-contents pc)))
+        (if (null? insts)
+            'done
+            (begin
+              ((instruction-execution-proc 
+                (car insts)))
+              (execute)))))
+    (define (dispatch message)
+      (cond ((eq? message 'start)
+             (set-contents! pc the-instruction-sequence)
+             (execute))
+            ((eq? message 'install-instruction-sequence)
+             (lambda (seq) 
+               (set! the-instruction-sequence seq)))
+            ((eq? message 'allocate-register)
+             allocate-register)
+            ((eq? message 'get-register) 
+             lookup-register)
+            ((eq? message 'install-operations)
+             (lambda (ops) 
+               (set! the-ops (append the-ops ops))))
+            ((eq? message 'stack) stack)
+            ((eq? message 'operations) the-ops)
+            (else (error "Unknown request: MACHINE" message))))
+    dispatch)))
 
 ;;; machine shortcut functions
 (define (start machine)
@@ -611,7 +632,7 @@
     (make-machine ops controller-text))
   (machine 'start))
 
-;;; fib machine
+;;; fib machine from Figure 5.12
 (let ((controller-text
        '(controller
          (assign n (const 20))
@@ -653,7 +674,8 @@
          (assign val 
                  (reg n))               ; base case: Fib(n) = n
          (goto (reg continue))
-         fib-done))
+         fib-done
+         (perform (op print-stack-statistics) )))
       (registers '(n val continue))
       (ops (list
             (list '< <)
@@ -667,6 +689,65 @@
               machine
               'val)))
     (if (= 6765 res)
-        (display "OK: fib-machine result is 6765 \n")
-        (error "Error: fib-machine result is " res)))
+        (display "OK: fib-machine(20) result is 6765 \n")
+        (error "Error: fib-machine(20) result is " res)))
+  )
+
+;;; fib machine 2
+(let ((controller-text
+      '(controller
+        (assign n (const 20))
+        (assign continue (label fib-done))
+
+        ;; fib
+        fib
+        (test (op <) (reg n) (const 2))
+        (branch (label fib-base))
+        (save n)                              ;set up for the fib(n-1)
+        (save continue)                       ;by saving n and continue
+        (assign continue (label after-fib-1)) ;
+        (assign n (op -) (reg n) (const 1))   ;
+        (goto (label fib))
+
+        after-fib-1
+        (restore continue)                    ;restore n and continue
+        (restore n)                           ;after fib(n-1)
+        (save n)                              ;set up for the fib(n-2)
+        (save continue)                       ;by saving n and continue
+        (assign continue (label after-fib-2)) ;
+        (assign n (op -) (reg n) (const 2))   ;
+        (save retval)                         ;save value of fib(n-1)
+        (goto (label fib))
+
+        after-fib-2
+        (assign tmp (reg retval) )       ;tmp <- fib(n-2)
+        (restore retval)                 ;restore value of fib(n-1)
+        (restore continue)               ;restore n and continue
+        (restore n)                      ;after fib(n-2)
+        (assign retval (op +) (reg retval) (reg tmp)) ;retval <- fib(n-1) + fib(n-2)
+        (goto (reg continue))                         ;return to caller
+
+        fib-base
+        (assign retval (reg n))
+        (goto (reg continue))            ;return to caller
+        ;; end fib
+
+        fib-done
+        ;; (perform (op print) (reg retval))
+        (perform (op print-stack-statistics))
+        ))
+      (ops (list
+            (list '< <)
+            (list '- -)
+            (list '+ +))))
+  (define machine
+    (make-machine ops controller-text))
+  (machine 'start)
+
+  (let ((res (get-register-contents
+              machine
+              'retval)))
+    (if (= 6765 res)
+        (display "OK: fib-machine(20) result is 6765 \n")
+        (error "Error: fib-machine(20) result is " res)))
   )

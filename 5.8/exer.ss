@@ -24,4 +24,4 @@
 ;; (assoc 'here labels) will be
 ;; (here ((assign a (const 3))) ((goto (label there))) ((assign a (const 4))) ((goto (label there))))
 ;; so the content of `a` will be 3
-;; A fix can be found in the `extract-labels` procedure in machine.ss
+;; A fix can be found in the `extract-labels` procedure in register-machine/machine.ss

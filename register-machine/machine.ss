@@ -4,7 +4,7 @@
 (define (tagged-list? x sym)
   (equal? sym (car x)))
 
-;;; the general machine constructor
+;;; the machine constructor
 (define (make-machine
          ;; register-names
          ops
@@ -21,12 +21,23 @@
 
 ;;; the register constructor
 (define (make-register name)
-  (let ((contents '*unassigned*))
+  (let ((contents '*unassigned*)
+        (reg-tracing #f))               ;exer 5.18
     (define (dispatch message)
       (cond ((eq? message 'get) contents)
             ((eq? message 'set)
-             (lambda (value) 
+             (lambda (value)
+               (if reg-tracing
+                   (begin
+                     (display (list "register:" name
+                                    "old-val:" contents
+                                    "new-val:" value))
+                     (newline)))
                (set! contents value)))
+            ((eq? message 'trace-on)
+             (set! reg-tracing #t))
+            ((eq? message 'trace-off)
+             (set! reg-tracing #f))
             (else
              (error "Unknown request: 
                      REGISTER"
@@ -92,12 +103,15 @@
 (define (pop stack)
   (stack 'pop))
 
-;;; a customize machine constructor
+;;; a general machine constructor
 (define (make-new-machine)
   (let ((pc (make-register 'pc))
         (flag (make-register 'flag))
         (stack (make-stack))
-        (the-instruction-sequence '()))
+        (the-instruction-sequence '())
+        (instruction-tracing #f)        ;exer 5.16
+        (instruction-counter 0)         ;exer 5.15
+        )
     (let ((the-ops
            (list 
             (list 'initialize-stack (lambda () (stack 'initialize)))
@@ -106,47 +120,74 @@
           (register-table
            (list (list 'pc pc) 
                  (list 'flag flag))))
-    (define (allocate-register name)
-      (if (assoc name register-table)
-          ;; (error "Multiply defined register: " name)
-          (lookup-register name)
-          (let ((register (make-register name)))
-            (set! register-table
-                  (cons 
-                   (list name register)
-                   register-table))
-            register)))
-    (define (lookup-register name)
-      (let ((val (assoc name register-table)))
-        (if val
-            (cadr val)
-            (error "Unknown register:" name))))
-    (define (execute)
-      (let ((insts (get-contents pc)))
-        (if (null? insts)
-            'done
-            (begin
-              ((instruction-execution-proc 
-                (car insts)))
-              (execute)))))
-    (define (dispatch message)
-      (cond ((eq? message 'start)
-             (set-contents! pc the-instruction-sequence)
-             (execute))
-            ((eq? message 'install-instruction-sequence)
-             (lambda (seq) 
-               (set! the-instruction-sequence seq)))
-            ((eq? message 'allocate-register)
-             allocate-register)
-            ((eq? message 'get-register) 
-             lookup-register)
-            ((eq? message 'install-operations)
-             (lambda (ops) 
-               (set! the-ops (append the-ops ops))))
-            ((eq? message 'stack) stack)
-            ((eq? message 'operations) the-ops)
-            (else (error "Unknown request: MACHINE" message))))
-    dispatch)))
+      (define (allocate-register name)
+        (if (assoc name register-table)
+            ;; (error "Multiply defined register: " name)
+            (lookup-register name)
+            (let ((register (make-register name)))
+              (set! register-table
+                    (cons 
+                     (list name register)
+                     register-table))
+              register)))
+      (define (lookup-register name)
+        (let ((val (assoc name register-table)))
+          (if val
+              (cadr val)
+              (error "Unknown register:" name))))
+      (define (execute)
+        (let ((insts (get-contents pc)))
+          (if (null? insts)
+              'done
+              (let ((next-inst (car insts)))
+                (if instruction-tracing
+                    (begin
+                      (display (list
+                                "counter:"
+                                instruction-counter
+                                "label: "
+                                (instruction-label next-inst)
+                                "next instruction:"
+                                (instruction-text next-inst)
+                                ))
+                      (newline)))
+                ;; increase counter
+                (set! instruction-counter (+ 1 instruction-counter))
+                ;; execute procedure
+                ((instruction-execution-proc
+                  next-inst))
+                (execute)))))
+      (define (trace-on)
+        (set! instruction-tracing #t))
+      (define (trace-off)
+        (set! instruction-tracing #f))
+      (define (dispatch message)
+        (cond ((eq? message 'start)
+               (set-contents! pc the-instruction-sequence)
+               (execute))
+              ((eq? message 'install-instruction-sequence)
+               (lambda (seq) 
+                 (set! the-instruction-sequence seq)))
+              ((eq? message 'allocate-register)
+               allocate-register)
+              ((eq? message 'get-register) 
+               lookup-register)
+              ((eq? message 'install-operations)
+               (lambda (ops) 
+                 (set! the-ops (append the-ops ops))))
+              ((eq? message 'stack) stack)
+              ((eq? message 'operations) the-ops)
+              ((eq? message 'trace-on) (trace-on))
+              ((eq? message 'trace-off) (trace-off))
+              ((eq? message 'trace-reg)
+               (lambda (reg-name)
+                 (if (eq? reg-name 'all)
+                     (for-each (lambda (tab-entry)
+                                 ((cadr tab-entry) 'trace-on))
+                               register-table)
+                     ((lookup-register reg-name) 'trace-on))))
+              (else (error "Unknown request: MACHINE" message))))
+      dispatch)))
 
 ;;; machine shortcut functions
 (define (start machine)
@@ -169,8 +210,8 @@
 
 (define (allocate-register machine reg-name)
   ((machine 'allocate-register) reg-name))
-;;; the assembler ;;;;;;;;;;;;;;;;;;;;
 
+;;; the assembler ;;;;;;;;;;;;;;;;;;;;
 ;;; Assemble controller text into instructions, and create
 ;;; a label table to associate each label with corresponding
 ;;; instructions.
@@ -179,29 +220,34 @@
   (extract-labels controller-text
                   (lambda (insts labels)
                     (update-insts! insts labels machine)
-                    insts)))
+                    insts))
+  )
 
 ;;; Create an initial instructions and a label table.
 ;;; A *receive* function is used to update the instructions
-;;; to add the appropriate procedure.
+;;; with the appropriate procedure.
 (define (extract-labels text receive)
   (if (null? text)
       (receive '() '())
       (extract-labels 
        (cdr text)
        (lambda (insts labels)
-         (let ((next-inst (car text)))
+         (let ((next-inst (car text))
+               (prev-symbol '())
+               )
            (if (symbol? next-inst)
-               (if (assoc next-inst labels)
-                   (error "Duplicated label: ASSEMBLE" next-inst)
-                   (receive 
-                       insts
-                       (cons 
-                        (make-label-entry next-inst insts)
-                        labels)))
-               (receive
-                   (cons (make-instruction next-inst) insts)
-                   labels)))))))
+               (begin
+                 (if (assoc next-inst labels)
+                     (error "Duplicated label: ASSEMBLE" next-inst)
+                     (receive 
+                         insts
+                         (cons 
+                          (make-label-entry next-inst insts)
+                          labels))))
+               (begin
+                 (receive
+                     (cons (make-instruction prev-symbol next-inst) insts)
+                     labels))))))))
 
 ;;; update initial instructions to add appropriate procedures
 (define (update-insts! insts labels machine)
@@ -237,16 +283,17 @@
           (lookup-label (cdr labels) label-name))))
 
 ;;; the instruction constructor
-(define (make-instruction text)
-  (cons text '*unset-proc*)
-  ;; (cons text '())
-  )
+(define (make-instruction label text)
+  (cons (cons label text)
+        '*unset-proc*))
 
 ;;; the instruction selectors and mutators
 (define (set-instruction-execution-proc! inst proc)
   (set-cdr! inst proc))
 (define (instruction-text inst)
-  (car inst))
+  (cdr (car inst)))
+(define (instruction-label inst)
+  (car (car inst)))
 (define (instruction-execution-proc inst)
   (cdr inst))
 
@@ -506,248 +553,235 @@
             (list '= =)
             (list '- -)
             (list '* *))))
-
   (define machine
     (make-machine ops controller-text))
+  (machine 'trace-on)
+  ((machine 'trace-reg) 'counter)
   (machine 'start)
   (let ((res (get-register-contents
               machine
               'product)))
-
     (if (= 1024 res)
         (display "OK: iterative expt-machine result is 1024 \n")
-        (error "Error: expt-machine result is " res)))
-  )
+        (error "Error: expt-machine result is " res))))
 
 ;;; recursive expt machine
-(let ((controller-text
-       '(controller
-         (assign continue (label expt-done))
-         (assign n (const 10))
-         (assign b (const 2))
-         expt-loop
-         (test (op =) (reg n) (const 0))
-         (branch (label expt-base))
-         (save n)
-         (save continue)
-         (assign n (op -) (reg n) (const 1))     ;n = n -1
-         (assign continue (label after-expt))
-         (goto (label expt-loop))
-         expt-base
-         (assign val (const 1))                 ;val = 1
-         (goto (reg continue))
-         after-expt
-         (restore continue)
-         (restore n)
-         (assign val (op *) (reg b) (reg val))   ;val = b * (expt b (- n 1))
-         (goto (reg continue))
-         expt-done
-         )
-       )
-      (registers '(continue b n val))
-      (ops (list
-            (list '= =)
-            (list '- -)
-            (list '* *))))
+;; (let ((controller-text
+;;        '(controller
+;;          (assign continue (label expt-done))
+;;          (assign n (const 10))
+;;          (assign b (const 2))
+;;          expt-loop
+;;          (test (op =) (reg n) (const 0))
+;;          (branch (label expt-base))
+;;          (save n)
+;;          (save continue)
+;;          (assign n (op -) (reg n) (const 1))     ;n = n -1
+;;          (assign continue (label after-expt))
+;;          (goto (label expt-loop))
+;;          expt-base
+;;          (assign val (const 1))                 ;val = 1
+;;          (goto (reg continue))
+;;          after-expt
+;;          (restore continue)
+;;          (restore n)
+;;          (assign val (op *) (reg b) (reg val))   ;val = b * (expt b (- n 1))
+;;          (goto (reg continue))
+;;          expt-done
+;;          )
+;;        )
+;;       (registers '(continue b n val))
+;;       (ops (list
+;;             (list '= =)
+;;             (list '- -)
+;;             (list '* *))))
+;;   (define machine
+;;     (make-machine ops controller-text))
+;;   (machine 'trace-on)
+;;   ((machine 'trace-reg) 'continue)
+;;   (machine 'start)
+;;   (let ((res (get-register-contents
+;;               machine
+;;               'val)))
+;;     (if (= 1024 res)
+;;         (display "OK: recursive expt-machine result is 1024 \n")
+;;         (error "Error: expt-machine result is " res)))  
+;;   )
 
-  (define machine
-    (make-machine ops controller-text))
-  (machine 'start)
+;; ;;; sqrt machine
+;; (let* ((controller-text
+;;         '(sqrt-loop
+;;           (assign x (op read))
+;;           (assign guess (const 1.0))
+;;           test-guess
+;;           (test (op good-enough?) (reg guess) (reg x))
+;;           (branch (label done))
+;;           (assign guess (op improve) (reg guess) (reg x))
+;;           (goto (label test-guess))
+;;           done
+;;           (perform (op print) (reg guess)))
+;;         )
+;;        (registers '(x guess))
+;;        (good-enough? (lambda (guess val)
+;;                        (display (string-append
+;;                                  "guess: " (number->string guess)
+;;                                  " val:" (number->string val) "\n"))
+;;                        (<
+;;                         (abs (- (* guess guess) val) )
+;;                         0.001)))
+;;        (improve (lambda (guess val)
+;;                   (/
+;;                    (+ guess
+;;                       (/ val guess))
+;;                    2)))
+;;        (ops (list
+;;              (list 'good-enough? good-enough?)
+;;              (list 'improve improve)
+;;              (list 'print display)
+;;              (list 'read read))))
+;;   (define machine
+;;     (make-machine ops controller-text))
+;;   (machine 'start))
+;; ;;; sqrt machine 2
+;; (let ((controller-text
+;;         '(controller
+;;           (assign x (op read))
+;;           (assign guess (const 1.0))
+;;           sqrt-loop
+;;           (assign a (op square) (reg guess))     ;square is considered as a primitive op
+;;           (assign a (op -) (reg a) (reg x))
+;;           (assign a (op abs) (reg a))
+;;           (test (op <) (reg a) (const 0.001))    ;if good-enough?, goto done with result in reg guess
+;;           (branch (label done))
+;;           (assign a (op /) (reg x) (reg guess))  ;otherwise, improve guess
+;;           (assign guess (op average) (reg guess) (reg a))
+;;           (goto (label sqrt-loop))
+;;           done
+;;           (perform (op print) (reg guess)))
+;;         )
+;;        (registers '(a x guess))
+;;        (ops (list
+;;              (list '- -)
+;;              (list '/ /)
+;;              (list '< <)
+;;              (list 'abs abs)
+;;              (list 'average (lambda (a b) (/ (+ a b) 2)))
+;;              (list 'square (lambda (x) (* x x)))
+;;              (list 'print display)
+;;              (list 'read read))))
+;;   (define machine
+;;     (make-machine ops controller-text))
+;;   (machine 'start))
 
-  (let ((res (get-register-contents
-              machine
-              'val)))
-    (if (= 1024 res)
-        (display "OK: recursive expt-machine result is 1024 \n")
-        (error "Error: expt-machine result is " res)))  
-  )
+;; ;;; fib machine from Figure 5.12
+;; (let ((controller-text
+;;        '(controller
+;;          (assign n (const 20))
+;;          (assign continue (label fib-done))
+;;          fib-loop
+;;          (test (op <) (reg n) (const 2))
+;;          (branch (label immediate-answer))
+;;          ;; set up to compute Fib(n − 1)
+;;          (save continue)
+;;          (assign continue (label afterfib-n-1))
+;;          (save n)                       ; save old value of n
+;;          (assign n 
+;;                  (op -)
+;;                  (reg n)
+;;                  (const 1))             ; clobber n to n-1
+;;          (goto 
+;;           (label fib-loop))     ; perform recursive call
+;;          afterfib-n-1           ; upon return, val contains Fib(n − 1)
+;;          (restore n)
+;;          ;; (restore continue)
+;;          ;; set up to compute Fib(n − 2)
+;;          (assign n (op -) (reg n) (const 2))
+;;          ;; (save continue)
+;;          (assign continue (label afterfib-n-2))
+;;          (save val)                     ; save Fib(n − 1)
+;;          (goto (label fib-loop))
+;;          afterfib-n-2           ; upon return, val contains Fib(n − 2)
+;;          (assign n 
+;;                  (reg val))             ; n now contains Fib(n − 2)
+;;          (restore val)                  ; val now contains Fib(n − 1)
+;;          (restore continue)
+;;          (assign val                    ; Fib(n − 1) + Fib(n − 2)
+;;                  (op +) 
+;;                  (reg val)
+;;                  (reg n))
+;;          (goto                          ; return to caller,
+;;           (reg continue))               ; answer is in val
+;;          immediate-answer
+;;          (assign val 
+;;                  (reg n))               ; base case: Fib(n) = n
+;;          (goto (reg continue))
+;;          fib-done
+;;          (perform (op print-stack-statistics) )))
+;;       (registers '(n val continue))
+;;       (ops (list
+;;             (list '< <)
+;;             (list '- -)
+;;             (list '+ +))))
+;;   (define machine
+;;     (make-machine ops controller-text))
+;;   (machine 'start)
+;;   (let ((res (get-register-contents
+;;               machine
+;;               'val)))
+;;     (if (= 6765 res)
+;;         (display "OK: fib-machine(20) result is 6765 \n")
+;;         (error "Error: fib-machine(20) result is " res)))
+;;   )
 
-;;; sqrt machine
-(let* ((controller-text
-        '(sqrt-loop
-          (assign x (op read))
-          (assign guess (const 1.0))
-          test-guess
-          (test (op good-enough?) (reg guess) (reg x))
-          (branch (label done))
-          (assign guess (op improve) (reg guess) (reg x))
-          (goto (label test-guess))
-          done
-          (perform (op print) (reg guess)))
-        )
-       (registers '(x guess))
-       (good-enough? (lambda (guess val)
-                       (display (string-append
-                                 "guess: " (number->string guess)
-                                 " val:" (number->string val) "\n"))
-                       (<
-                        (abs (- (* guess guess) val) )
-                        0.001)))
-       (improve (lambda (guess val)
-                  (/
-                   (+ guess
-                      (/ val guess))
-                   2)))
-       (ops (list
-             (list 'good-enough? good-enough?)
-             (list 'improve improve)
-             (list 'print display)
-             (list 'read read))))
-
-  (define machine
-    (make-machine ops controller-text))
-  (machine 'start))
-
-;;; sqrt machine 2
-(let ((controller-text
-        '(controller
-          (assign x (op read))
-          (assign guess (const 1.0))
-
-          sqrt-loop
-          (assign a (op square) (reg guess))     ;square is considered as a primitive op
-          (assign a (op -) (reg a) (reg x))
-          (assign a (op abs) (reg a))
-          (test (op <) (reg a) (const 0.001))    ;if good-enough?, goto done with result in reg guess
-          (branch (label done))
-          (assign a (op /) (reg x) (reg guess))  ;otherwise, improve guess
-          (assign guess (op average) (reg guess) (reg a))
-          (goto (label sqrt-loop))
-
-          done
-          (perform (op print) (reg guess)))
-        )
-       (registers '(a x guess))
-       (ops (list
-             (list '- -)
-             (list '/ /)
-             (list '< <)
-             (list 'abs abs)
-             (list 'average (lambda (a b) (/ (+ a b) 2)))
-             (list 'square (lambda (x) (* x x)))
-             (list 'print display)
-             (list 'read read))))
-
-  (define machine
-    (make-machine ops controller-text))
-  (machine 'start))
-
-;;; fib machine from Figure 5.12
-(let ((controller-text
-       '(controller
-         (assign n (const 20))
-         (assign continue (label fib-done))
-         fib-loop
-         (test (op <) (reg n) (const 2))
-         (branch (label immediate-answer))
-         ;; set up to compute Fib(n − 1)
-         (save continue)
-         (assign continue (label afterfib-n-1))
-         (save n)                       ; save old value of n
-         (assign n 
-                 (op -)
-                 (reg n)
-                 (const 1))             ; clobber n to n-1
-         (goto 
-          (label fib-loop))     ; perform recursive call
-         afterfib-n-1           ; upon return, val contains Fib(n − 1)
-         (restore n)
-         ;; (restore continue)
-         ;; set up to compute Fib(n − 2)
-         (assign n (op -) (reg n) (const 2))
-         ;; (save continue)
-         (assign continue (label afterfib-n-2))
-         (save val)                     ; save Fib(n − 1)
-         (goto (label fib-loop))
-         afterfib-n-2           ; upon return, val contains Fib(n − 2)
-         (assign n 
-                 (reg val))             ; n now contains Fib(n − 2)
-         (restore val)                  ; val now contains Fib(n − 1)
-         (restore continue)
-         (assign val                    ; Fib(n − 1) + Fib(n − 2)
-                 (op +) 
-                 (reg val)
-                 (reg n))
-         (goto                          ; return to caller,
-          (reg continue))               ; answer is in val
-         immediate-answer
-         (assign val 
-                 (reg n))               ; base case: Fib(n) = n
-         (goto (reg continue))
-         fib-done
-         (perform (op print-stack-statistics) )))
-      (registers '(n val continue))
-      (ops (list
-            (list '< <)
-            (list '- -)
-            (list '+ +))))
-  (define machine
-    (make-machine ops controller-text))
-  (machine 'start)
-
-  (let ((res (get-register-contents
-              machine
-              'val)))
-    (if (= 6765 res)
-        (display "OK: fib-machine(20) result is 6765 \n")
-        (error "Error: fib-machine(20) result is " res)))
-  )
-
-;;; fib machine 2
-(let ((controller-text
-      '(controller
-        (assign n (const 20))
-        (assign continue (label fib-done))
-
-        ;; fib
-        fib
-        (test (op <) (reg n) (const 2))
-        (branch (label fib-base))
-        (save n)                              ;set up for the fib(n-1)
-        (save continue)                       ;by saving n and continue
-        (assign continue (label after-fib-1)) ;
-        (assign n (op -) (reg n) (const 1))   ;
-        (goto (label fib))
-
-        after-fib-1
-        (restore continue)                    ;restore n and continue
-        (restore n)                           ;after fib(n-1)
-        (save n)                              ;set up for the fib(n-2)
-        (save continue)                       ;by saving n and continue
-        (assign continue (label after-fib-2)) ;
-        (assign n (op -) (reg n) (const 2))   ;
-        (save retval)                         ;save value of fib(n-1)
-        (goto (label fib))
-
-        after-fib-2
-        (assign tmp (reg retval) )       ;tmp <- fib(n-2)
-        (restore retval)                 ;restore value of fib(n-1)
-        (restore continue)               ;restore n and continue
-        (restore n)                      ;after fib(n-2)
-        (assign retval (op +) (reg retval) (reg tmp)) ;retval <- fib(n-1) + fib(n-2)
-        (goto (reg continue))                         ;return to caller
-
-        fib-base
-        (assign retval (reg n))
-        (goto (reg continue))            ;return to caller
-        ;; end fib
-
-        fib-done
-        ;; (perform (op print) (reg retval))
-        (perform (op print-stack-statistics))
-        ))
-      (ops (list
-            (list '< <)
-            (list '- -)
-            (list '+ +))))
-  (define machine
-    (make-machine ops controller-text))
-  (machine 'start)
-
-  (let ((res (get-register-contents
-              machine
-              'retval)))
-    (if (= 6765 res)
-        (display "OK: fib-machine(20) result is 6765 \n")
-        (error "Error: fib-machine(20) result is " res)))
-  )
+;; ;;; fib machine 2
+;; (let ((controller-text
+;;       '(controller
+;;         (assign n (const 20))
+;;         (assign continue (label fib-done))
+;;         ;; fib
+;;         fib
+;;         (test (op <) (reg n) (const 2))
+;;         (branch (label fib-base))
+;;         (save n)                              ;set up for the fib(n-1)
+;;         (save continue)                       ;by saving n and continue
+;;         (assign continue (label after-fib-1)) ;
+;;         (assign n (op -) (reg n) (const 1))   ;
+;;         (goto (label fib))
+;;         after-fib-1
+;;         (restore continue)                    ;restore n and continue
+;;         (restore n)                           ;after fib(n-1)
+;;         (save n)                              ;set up for the fib(n-2)
+;;         (save continue)                       ;by saving n and continue
+;;         (assign continue (label after-fib-2)) ;
+;;         (assign n (op -) (reg n) (const 2))   ;
+;;         (save retval)                         ;save value of fib(n-1)
+;;         (goto (label fib))
+;;         after-fib-2
+;;         (assign tmp (reg retval) )       ;tmp <- fib(n-2)
+;;         (restore retval)                 ;restore value of fib(n-1)
+;;         (restore continue)               ;restore n and continue
+;;         (restore n)                      ;after fib(n-2)
+;;         (assign retval (op +) (reg retval) (reg tmp)) ;retval <- fib(n-1) + fib(n-2)
+;;         (goto (reg continue))                         ;return to caller
+;;         fib-base
+;;         (assign retval (reg n))
+;;         (goto (reg continue))            ;return to caller
+;;         ;; end fib
+;;         fib-done
+;;         ;; (perform (op print) (reg retval))
+;;         (perform (op print-stack-statistics))
+;;         ))
+;;       (ops (list
+;;             (list '< <)
+;;             (list '- -)
+;;             (list '+ +))))
+;;   (define machine
+;;     (make-machine ops controller-text))
+;;   (machine 'start)
+;;   (let ((res (get-register-contents
+;;               machine
+;;               'retval)))
+;;     (if (= 6765 res)
+;;         (display "OK: fib-machine(20) result is 6765 \n")
+;;         (error "Error: fib-machine(20) result is " res)))
+;;   )

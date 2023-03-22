@@ -83,3 +83,7 @@
  ;; (perform (op print) (reg retval))
  )
 
+
+;;; append and append! with vector-ref and vector-set!
+;;; register-machine/test-cases/append_vec_machine.ss
+;;; register-machine/test-cases/append_vec_machine2.ss

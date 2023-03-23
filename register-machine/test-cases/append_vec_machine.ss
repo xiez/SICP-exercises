@@ -11,7 +11,7 @@
 
  ;; x = (list 4 3)
  (assign tmp1 (const 3))
- (assign tmp2 (const 0))                ;NULL ptr
+ (assign tmp2 (const 0))                ;null pointer
  (perform (op vector-set!) (reg the-cars) (reg free) (reg tmp1))
  (perform (op vector-set!) (reg the-cdrs) (reg free) (reg tmp2))
  (assign x (reg free))
@@ -26,7 +26,7 @@
 
  ;; y = (list 2 1)
  (assign tmp1 (const 1))
- (assign tmp2 (const 0))                ;NULL ptr
+ (assign tmp2 (const 0))                ;null pointer
  (perform (op vector-set!) (reg the-cars) (reg free) (reg tmp1))
  (perform (op vector-set!) (reg the-cdrs) (reg free) (reg tmp2))
  (assign y (reg free))

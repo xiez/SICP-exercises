@@ -70,6 +70,5 @@ def analyze_operand(token):
 def parse(line):
     try:
         return analyze(tokenize(line))
-    except Exception as e:
-        print(e)
+    except:
         return tokenize(line)[0]

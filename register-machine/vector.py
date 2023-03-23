@@ -6,7 +6,6 @@ def make_vector(capacity=10, type_code='i'):
     return vec
 
 def vector_ref(vec, n):
-    print(f'vector_ref: {n}')
     return vec[n]
 
 def vector_set(vec, n, val):

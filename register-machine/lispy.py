@@ -117,8 +117,8 @@ def eval_(exp, env):
             lambda_body(exp),
             env,
         )
-    elif is_definination(exp):
-        return eval_defination(exp, env)
+    elif is_definition(exp):
+        return eval_definition(exp, env)
     elif is_combination(exp):  # ['+', 1, 1]
         return apply_(
             eval_(get_combination_operator(exp), env),
@@ -230,18 +230,18 @@ def procedure_environment(exp):
     return exp[3]
 
 
-def is_definination(exp):
+def is_definition(exp):
     return exp[0] == "define"
 
 
-def defination_variable(exp):
+def definition_variable(exp):
     if is_list(exp[1]):
         return exp[1][0]
     else:
         return exp[1]
 
 
-def defination_value(exp):
+def definition_value(exp):
     if is_list(exp[1]):
         params = exp[1][1:]
         body = exp[2:]
@@ -250,10 +250,10 @@ def defination_value(exp):
         return exp[2]
 
 
-def eval_defination(exp, env):
+def eval_definition(exp, env):
     # (define a 42)
     # (define (f arg1 arg2) body)
-    set_variable(defination_variable(exp), eval_(defination_value(exp), env), env)
+    set_variable(definition_variable(exp), eval_(definition_value(exp), env), env)
 
 
 # def is_quote(exp):
@@ -432,3 +432,6 @@ ENV = extend_environment(
         print_env,
     ],
 )
+
+def initial_env():
+    return ENV

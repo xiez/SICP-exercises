@@ -1,4 +1,5 @@
 (controller
+ (assign env (op initial-env))
  (assign continue (label done))
 
  eval-dispatch
@@ -8,6 +9,10 @@
  (branch (label ev-variable))
  (test (op lambda?) (reg exp))
  (branch (label ev-lambda))
+ (test (op definition?) (reg exp))
+ (branch (label ev-definition))
+ (test (op if?) (reg exp))
+ (branch (label ev-if))
  (test (op application?) (reg exp))
  (branch (label ev-application))
  (goto (label unknown-expression-type))
@@ -28,20 +33,20 @@
          (reg unev) (reg exp) (reg env))
  (goto (reg continue))
 
- ;; evaluate an application/combination
+ ;; evaluate an application
  ev-application
+ (save continue)                        ;set up for evaluating application operator
  (save env)                             ;save current env
  (assign unev (op combination-operands) (reg exp))
  (save unev)                            ;save un-evaluated operands
  (assign exp (op combination-operator) (reg exp))
- (save continue)                        ;set up for evaluating application operator
  (assign continue (label ev-appl-did-operator))
  (goto (label eval-dispatch))
 
  ;; evaluate application operands after operator
  ev-appl-did-operator
- (resotre env)                          ;resotre the application env
- (resotre unev)                         ;restore the un-evaluated operands
+ (restore unev)                         ;restore the un-evaluated operands
+ (restore env)                          ;restore the application env
  (assign argl (op empty-arglist))       ;init argl to empty list
  (assign proc (reg val))                ;get the procedure stored in reg val
  (test (op no-operands?) (reg unev))    ;if application without arguments
@@ -51,17 +56,17 @@
  ;; evaluating the args
  ev-appl-operand-loop
  (save argl)
- (test (op last-operand?) (reg unenv))  ;if there is only one argument
+ (assign exp (op first-operand) (reg unev)) ;get the first operand
+ (test (op last-operand?) (reg unev))  ;if there is only one argument
  (branch (label ev-appl-last-arg))      ;go evaluate last argument (BASE CASE)
  (save env)                             ;otherwise, ... (RECURSIVE)
  (save unev)
- (assign exp (op first-operand) (reg unev)) ;get the first operand
  (assign continue (label ev-appl-accumulate-arg)) ;set up return address
  (goto (label eval-dispatch))           ;go eval first operand
 
  ;; evaluate last argument
  ev-appl-last-arg
- (assgin continue (label ev-appl-accum-last-arg))
+ (assign continue (label ev-appl-accum-last-arg))
  (goto (label eval-dispatch))
 
  ;; accumulate last value to arglist (BASE CASE)
@@ -73,7 +78,7 @@
 
  ;; accumulating the argument values to arglist (RECURSIVE)
  ev-appl-accumulate-arg
- (restore unenv)
+ (restore unev)
  (restore env)
  (restore argl)
  (assign argl (op adjoin-arg) (reg val) (reg argl)) ;adjoin the eval result to argl
@@ -129,6 +134,53 @@
  (perform (op print) (const "Unknown-procedure-type"))
  (perform (op print) (reg proc))
  ;; end apply-dispatch
+
+ ;; eval definition
+ ev-definition
+ (assign unev (op definition-variable) (reg exp))
+ (save unev)
+ (assign exp (op definition-value) (reg exp))
+ (save env)
+ (save continue)
+ (assign continue (label ev-definition-1))
+ (goto (label eval-dispatch))           ;evaluate definition value
+
+ ev-definition-1
+ (restore continue)
+ (restore env)
+ (restore unev)
+ (perform (op set-variable-value!)
+          (reg unev)
+          (reg val)
+          (reg env))
+ (assign val (const ok))
+ (goto (reg continue))
+ ;; end eval definition
+
+ ;; eval if
+ ev-if
+ (save exp)
+ (save env)
+ (save continue)
+ (assign continue (label ev-if-decide))
+ (assign exp (op if-predicate) (reg exp))
+ (goto (label eval-dispatch))           ;evaluate if predicate
+
+ ev-if-decide
+ (restore continue)
+ (restore env)
+ (restore exp)
+ (test (op true?) (reg val))
+ (branch (label ev-if-consequent))
+
+ ev-if-alternative
+ (assign exp (op if-alternative) (reg exp))
+ (goto (label eval-dispatch))
+
+ ev-if-consequent
+ (assign exp (op if-consequent) (reg exp))
+ (goto (label eval-dispatch))
+ ;; end eval if
 
  unknown-expression-type
  (perform (op print) (const "Unknown-expression-type"))

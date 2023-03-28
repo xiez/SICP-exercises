@@ -274,9 +274,9 @@ class BaseMachine(ABC):
         logging.info("Assembling before starting machine ...")
         logging.info("---- instruction list ----")
         logging.info(inst_list)
-        logging.info("---- label table ----")
-        logging.info(label_table)
-        logging.info("-------------------")
+        # logging.info("---- label table ----")
+        # logging.info(label_table)
+        # logging.info("-------------------")
 
         return inst_list
 

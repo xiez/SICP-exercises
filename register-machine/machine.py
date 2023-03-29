@@ -115,11 +115,13 @@ class Stack:
     def __init__(self):
         self.lst = None
         self.number_pushes = 0
+        self.number_pops = 0
         self.max_depth = 0
         self.current_depth = 0
 
     def initialize(self):
         self.lst = []
+        self.reset_statistics()
 
     def push(self, x: Any):
         assert self.lst is not None, "Stack not initialized."
@@ -132,13 +134,22 @@ class Stack:
         assert self.lst is not None, "Stack not initialized."
         try:
             val = self.lst.pop()
+            self.number_pops += 1
             self.current_depth -= 1
             return val
         except IndexError:
             raise Exception("Empty stack: POP")
 
     def print_statistics(self):
-        print(f"total-pushes={self.number_pushes}, maximum-depth={self.max_depth}")
+        print(f"total-pushes={self.number_pushes}, total-pops={self.number_pops}, maximum-depth={self.max_depth}")
+        if self.number_pushes != self.number_pops:
+            print(f"remaining vals: {self.lst}")
+
+    def reset_statistics(self):
+        self.number_pushes = 0
+        self.number_pops = 0
+        self.max_depth = 0
+        self.current_depth = 0
 
     def __repr__(self):
         cnt = len(self.lst)
@@ -166,6 +177,7 @@ class BaseMachine(ABC):
         self.operations = [
             ["initialize-stack", self.stack.initialize],
             ["print-stack-statistics", self.stack.print_statistics],
+            ["reset-stack-statistics", self.stack.reset_statistics],
         ]
         self.register_table = {
             "pc": self._pc,
@@ -188,8 +200,8 @@ class BaseMachine(ABC):
     def _status(self):
         logging.debug("===== status ====")
         for _, reg in self.register_table.items():
-            if reg.name == "pc":
-                logging.debug(f"register: {reg.name}, content: {reg.contents[:1]} .. ")
+            if reg.name in ["pc", "continue"]:
+                logging.debug(f"register: {reg.name}, content: {reg.contents[:3]} ... ")
             else:
                 logging.debug(f"register: {reg.name}, content: {reg.contents}")
 

@@ -15,10 +15,10 @@ class _Pair:
 def is_pair(x):
     return isinstance(x, _Pair)
 def car(x):
-    assert is_pair(x)
+    assert is_pair(x), x
     return x.car
 def cdr(x):
-    assert is_pair(x)
+    assert is_pair(x), x
     return x.cdr
 def cons(x, y):
     return _Pair(x, y)

@@ -1,4 +1,5 @@
 (controller
+ (goto (label read-eval-print-loop))
  (assign env (op initial-env))
  (assign continue (label done))
 
@@ -13,6 +14,10 @@
  (branch (label ev-definition))
  (test (op if?) (reg exp))
  (branch (label ev-if))
+ (test (op let?) (reg exp))
+ (branch (label ev-let))
+ (test (op cond?) (reg exp))
+ (branch (label ev-cond))
  (test (op application?) (reg exp))
  (branch (label ev-application))
  (goto (label unknown-expression-type))
@@ -99,7 +104,7 @@
  ev-sequence-continue
  (restore unev)
  (restore env)
- (assign unev (op rest-exps) (reg unev)) ;remove first exp
+ (assign unev (op rest-exps) (reg unev)) ;remove first unevaluated exp
  (goto (label ev-sequence))             ;go eval next exp
 
  ev-sequence-last-exp                   ;<-- TAIL RECURSION
@@ -131,8 +136,9 @@
  (goto (label ev-sequence))             ; in new env (MUTUAL RECURSION)
 
  unknown-procedure-type
- (perform (op print) (const "Unknown-procedure-type"))
- (perform (op print) (reg proc))
+ (restore continue)
+ (assign val (const "Unknown-procedure-type"))
+ (goto (label signal-error))
  ;; end apply-dispatch
 
  ;; eval definition
@@ -182,9 +188,75 @@
  (goto (label eval-dispatch))
  ;; end eval if
 
+ ;; eval let
+ ev-let
+ (assign exp (op let->combination) (reg exp))
+ (goto (label eval-dispatch))
+ ;; end eval let
+
+ ;; ;; eval cond
+ ;; ev-cond
+ ;; (assign exp (op cond->if) (reg exp))
+ ;; (goto (label eval-dispatch))
+ ;; ;; end eval cond
+
+ ;; eval cond (without reducing to if)
+ ev-cond
+ (save continue)
+ (assign unev (op cond-clauses) (reg exp))
+
+ ev-cond-test-pred-loop
+ (assign exp (op first-clause) (reg unev)) ;get the first clause
+ (test (op cond-else-clause?) (reg exp)) ;if it's else clause, go eval else clause
+ (branch (label ev-cond-else-clause))   ;otherwise, go eval predicate of the clause
+ (save continue)
+ (assign continue (label ev-cond-pred-clause-1))
+ (save unev)
+ (save exp)
+ (assign exp (op cond-predicate) (reg exp))
+ (goto (label eval-dispatch))
+
+ ev-cond-pred-clause-1
+ (restore exp)
+ (restore unev)
+ (restore continue)
+ (test (op true?) (reg val))            ;if the eval result is true
+ (branch (label ev-cond-pred-clause-2))         ;eval clause actions
+ (assign unev (op rest-clauses) (reg unev)) ;otherwise, remove first clause
+ (goto (label ev-cond-test-pred-loop))  ;go next loop
+
+ ev-cond-pred-clause-2
+ (assign unev (op cond-actions) (reg exp)) ;get clause actions
+ (goto (label ev-sequence))             ;go eval actions sequencially
+
+ ev-cond-else-clause
+ (assign unev (op cond-actions) (reg exp)) ;get clause actions
+                                        ; (TODO: 'else' should be the last clause)
+ (goto (label ev-sequence))             ;go eval actions sequencially
+ ;; end eval cond
+
+ ;; driver loop
+ read-eval-print-loop
+ (perform (op initialize-stack))
+ (assign exp (op parse-read) (const "EC-Eval>>>"))
+ (assign env (op initial-env))
+ (assign continue (label print-result))
+ (goto (label eval-dispatch))
+
+ print-result
+ (perform (op print-stack-statistics))
+ ;; (perform (op reset-stack-statistics))
+ (perform (op print) (reg val))
+ (goto (label read-eval-print-loop))
+ ;; end driver loop
+
  unknown-expression-type
- (perform (op print) (const "Unknown-expression-type"))
- (perform (op print) (reg exp))
+ (assign val (const "Unknown-expression-type"))
+ (goto (label signal-error))
+
+ signal-error
+ (perform (op print) (const "VAL:") (reg val) (const "EXP:") (reg exp))
+ (goto (label read-eval-print-loop))
 
  done
  (perform (op print) (reg val))

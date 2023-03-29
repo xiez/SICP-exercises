@@ -1,10 +1,10 @@
 # A Lisp evaluator implemented in Python
 # Note: before run this script, increase stack size limit by: ulimit -s 60000
 import operator as op
-
 import sys
 sys.setrecursionlimit(10**6)
 
+import pair
 
 # utils --------------------
 def is_list(exp):
@@ -208,6 +208,21 @@ def lambda_parameters(exp):
 def lambda_body(exp):
     return exp[2:]
 
+# let
+def is_let(exp):
+    return exp[0] == 'let'
+def let_variables(exp):
+    return [e[0] for e in exp[1]]
+def let_values(exp):
+    return [e[1] for e in exp[1]]
+def let_body(exp):
+    return exp[2:]
+def let_to_combination(exp):
+    variables = let_variables(exp)
+    body = let_body(exp)
+    initial_vals = let_values(exp)
+    return [make_lambda(variables, body)] + initial_vals
+
 
 def is_compound_procedure(exp):
     return exp[0] == "procedure"
@@ -304,6 +319,20 @@ def is_cond(exp):
 def cond_clauses(exp):
     return exp[1:]
 
+# cond
+def get_cond_clauses(exp):
+    return exp[1:]
+def first_clause(clauses):
+    return clauses[0]
+def rest_clauses(clauses):
+    return clauses[1:]
+def is_cond_else_clause(clause):
+    return clause[0] == 'else'
+def get_cond_predicate(clause):
+    return clause[0]
+def get_cond_actions(clause):
+    return clause[1:]
+
 
 def expand_clauses(clauses):
     # a_clause:
@@ -337,11 +366,9 @@ def expand_clauses(clauses):
 
     return clauses_to_nested_if(clauses)
 
-
 def cond_to_if(exp):
     ret = expand_clauses(cond_clauses(exp))
     return ret
-
 
 def is_combination(exp):
     return is_list(exp)
@@ -384,8 +411,8 @@ def extend_environment(params, vals, env=[]):
 
 def list_impl(*args):
     if len(args) == 0:
-        return ()
-    return (args[0], list_impl(*args[1:]))
+        return None
+    return pair.cons(args[0], list_impl(*args[1:]))
 
 def print_env():
     print(ENV)
@@ -420,10 +447,10 @@ ENV = extend_environment(
         op.lt,
         op.gt,
         print,
-        lambda x, y: (x, y),
-        lambda x: x[0],
-        lambda x: x[1],
-        (),
+        pair.cons,
+        pair.car,
+        pair.cdr,
+        None,
         lambda x: False if x else True,
         True,
         False,

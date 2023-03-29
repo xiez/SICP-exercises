@@ -7,6 +7,7 @@ import lispy as OP
 controller_text = get_controller_text(__file__)
 ops = [
     ['print', print],
+    ['parse-read', lambda s: OP.parse(input(s))],
     ['=', op.eq],
     ["*", op.mul],
     ['<', op.lt],
@@ -49,9 +50,20 @@ ops = [
     ['if-alternative', OP.if_alternative],
     ['if-consequent', OP.if_consequent],
     ['true?', lambda x: x is True],
+    ['cond?', OP.is_cond],
+    ['cond->if', OP.cond_to_if],
+    ['let?', OP.is_let],
+    ['let->combination', OP.let_to_combination],
+    ['cond-clauses', OP.get_cond_clauses],
+    ['first-clause', OP.first_clause],
+    ['cond-else-clause?', OP.is_cond_else_clause],
+    ['cond-predicate', OP.get_cond_predicate],
+    ['rest-clauses', OP.rest_clauses],
+    ['cond-actions', OP.get_cond_actions],
 ]
 
 machine = Machine(ops, controller_text, name='EC-evaluator')
+machine.start()
 
 # machine.get_register('exp').set_contents(42)
 # machine.get_register('exp').set_contents(3.14)
@@ -117,6 +129,41 @@ machine = Machine(ops, controller_text, name='EC-evaluator')
 # machine.get_register('exp').set_contents(lambda_appl)
 # machine.start()
 
+# lambda_appl = OP.parse('''
+# (let ((a 1) (b 2)) (+ a b))
+# ''')
+# machine.get_register('exp').set_contents(lambda_appl)
+# machine.start()
+
+# lambda_appl = OP.parse('''
+# (let ((a 1) (b 2)) (let ((c (+ a b))) (+ a (+ b c))))
+# ''')
+# machine.get_register('exp').set_contents(lambda_appl)
+# machine.start()
+
+# lambda_appl = OP.parse('''
+# (cond ((= 1 1) "1==1")
+#         ((= 1 2) "1==2")
+#         (else "else.."))
+# ''')
+# machine.get_register('exp').set_contents(lambda_appl)
+# machine.start()
+
+# lambda_appl = OP.parse('''
+# (cond ((= 1 2) "1==2")
+#         ((= 2 2) "2==2")
+#         (else "else.."))
+# ''')
+# machine.get_register('exp').set_contents(lambda_appl)
+# machine.start()
+
+# lambda_appl = OP.parse('''
+# (cond ((= 1 2) "1==2")
+#         ((= 1 3) "1==3")
+#         (else "else.."))
+# ''')
+# machine.get_register('exp').set_contents(lambda_appl)
+# machine.start()
 
 
 # start machine

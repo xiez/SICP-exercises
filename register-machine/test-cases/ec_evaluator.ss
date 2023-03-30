@@ -112,6 +112,28 @@
  (goto (label eval-dispatch))           ;goto eval without saving env and unev
  ;; end ev-sequence
 
+ ;; ;; evaluate expressions WITHOUT tail recursion
+ ;; ev-sequence
+ ;; (test (op no-more-exp?) (reg unev))
+ ;; (branch (label ev-sequence-finished))
+ ;; (save env)                             ;set up for eval first exp
+ ;; (save unev)
+ ;; (assign exp (op first-exp) (reg unev))
+ ;; (assign continue (label ev-sequence-continue))
+ ;; (goto (label eval-dispatch))
+
+ ;; ev-sequence-continue
+ ;; (restore unev)
+ ;; (restore env)
+ ;; (assign unev (op rest-exps) (reg unev)) ;remove first unevaluated exp
+ ;; (goto (label ev-sequence))             ;go eval next exp
+
+ ;; ev-sequence-finished
+ ;; (restore continue)
+ ;; (goto (reg continue))           ;goto eval without saving env and unev
+ ;; ;; end ev-sequence
+
+
  ;; apply application
  apply-dispatch
  (test (op primitive-procedure?) (reg proc))

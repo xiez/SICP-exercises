@@ -31,6 +31,7 @@ ops = [
     ['first-operand', lambda x: x[0]],
     ['adjoin-arg', lambda x, lst: lst + [x]],
     ['rest-operands', lambda x: x[1:]],
+    ['no-more-exp?', lambda x: len(x) == 0],
     ['first-exp', lambda x: x[0]],
     ['last-exp?', lambda x: len(x) == 1],
     ['rest-exps', lambda x: x[1:]],

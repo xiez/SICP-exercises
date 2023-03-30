@@ -127,8 +127,8 @@ class Stack:
         assert self.lst is not None, "Stack not initialized."
         self.lst.append(x)
         self.number_pushes += 1
-        self.max_depth += 1
-        self.current_depth = max(self.max_depth, self.current_depth)
+        self.current_depth += 1
+        self.max_depth = max(self.max_depth, self.current_depth)
 
     def pop(self):
         assert self.lst is not None, "Stack not initialized."

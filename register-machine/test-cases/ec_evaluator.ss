@@ -1,7 +1,9 @@
 (controller
- (goto (label read-eval-print-loop))
  (assign env (op initial-env))
  (assign continue (label done))
+
+ ;; REPL
+ (goto (label read-eval-print-loop))
 
  eval-dispatch
  (test (op self-evaluating?) (reg exp))
@@ -28,7 +30,14 @@
 
  ev-variable
  (assign val (op lookup-variable-value) (reg exp) (reg env))
+ (test (op unbound-variable?) (reg val))
+ (branch (label ev-variable-unbound))
+ (assign val (op bound-variable-value) (reg val))
  (goto (reg continue))
+
+ ev-variable-unbound
+ (assign val (const "Unbound-variable"))
+ (goto (label signal-error))
 
  ev-lambda
  (assign unev (op lambda-parameters) (reg exp))
@@ -277,7 +286,7 @@
  (goto (label signal-error))
 
  signal-error
- (perform (op print) (const "VAL:") (reg val) (const "EXP:") (reg exp))
+ (perform (op print) (const "ERROR:") (reg val) (const "EXP:") (reg exp))
  (goto (label read-eval-print-loop))
 
  done

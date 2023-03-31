@@ -2,9 +2,10 @@ import operator as op
 
 from machine import Machine
 from utils import get_controller_text
-import lispy as OP
+import lispy_ops as OP
 
 controller_text = get_controller_text(__file__)
+
 ops = [
     ['print', print],
     ['parse-read', lambda s: OP.parse(input(s))],
@@ -17,6 +18,8 @@ ops = [
     ['self-evaluating?', OP.is_self_evaluating],
     ['variable?', OP.is_variable],
     ['lookup-variable-value', OP.lookup_variable_value],
+    ['unbound-variable?', OP.is_unbound_variable],
+    ['bound-variable-value', OP.get_bound_variable_value],
     ['lambda?', OP.is_lambda],
     ['lambda-parameters', OP.lambda_parameters],
     ['lambda-body', OP.lambda_body],

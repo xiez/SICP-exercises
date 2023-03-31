@@ -178,10 +178,15 @@ def set_variable(var, value, env):
 def lookup_variable_value(var, env):
     for a_frame in env:
         if var in a_frame:
-            return a_frame[var]
-    print(env)
-    raise Exception(f"Error: {var} is not defined in the ENV.")
+            return ['bound', a_frame[var]]
+    return ['unbound', '']
+    # raise Exception(f"Error: {var} is not defined in the ENV.")
 
+def is_unbound_variable(x: list):
+    return x[0] == 'unbound'
+
+def get_bound_variable_value(x: list):
+    return x[1]
 
 def is_lambda(exp):
     return exp[0] == "lambda"
@@ -462,3 +467,52 @@ ENV = extend_environment(
 
 def initial_env():
     return ENV
+
+# REPL
+def repl():
+    """read eval print loop"""
+    print("A toy lisp evaluater.")
+    while 1:
+        input_str = read_multiple_lines().strip()
+        if not input_str:
+            continue
+        if input_str.startswith(";"):
+            continue
+
+        try:
+            res = eval_(parse(input_str), ENV)
+            print(res)
+        except Exception as e:
+            print(e)
+
+
+def read_multiple_lines():
+    def is_balanced_parentheses(line):
+        stack = []
+        for char in line:
+            if not char or char not in ["(", ")"]:
+                continue
+            if not stack:
+                stack.append(char)
+                continue
+            if char == ")" and stack[-1] == "(":
+                stack.pop()
+                continue
+            stack.append(char)
+        return False if "(" in stack else True
+
+    lines = []
+    line = input("** >> ")
+    if is_balanced_parentheses(line):
+        return line
+
+    lines.append(line)
+    while 1:
+        line = input("..... ").strip()
+        if not line:
+            continue
+        if line.startswith(";"):  # ignore lines startswith ;
+            continue
+        lines.append(line)
+        if is_balanced_parentheses(" ".join(lines)):
+            return " ".join(lines)

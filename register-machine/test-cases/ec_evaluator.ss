@@ -50,7 +50,7 @@
  ;; evaluate an application
  ev-application
  (save continue)                        ;set up for evaluating application operator
- (save env)                             ;save current env
+ (save env)                             ;save current env since evaluate combination operator may change env
  (assign unev (op combination-operands) (reg exp))
  (save unev)                            ;save un-evaluated operands
  (assign exp (op combination-operator) (reg exp))
@@ -73,7 +73,7 @@
  (assign exp (op first-operand) (reg unev)) ;get the first operand
  (test (op last-operand?) (reg unev))  ;if there is only one argument
  (branch (label ev-appl-last-arg))      ;go evaluate last argument (BASE CASE)
- (save env)                             ;otherwise, ... (RECURSIVE)
+ (save env)                             ;otherwise, save env since eval next operand may change env
  (save unev)
  (assign continue (label ev-appl-accumulate-arg)) ;set up return address
  (goto (label eval-dispatch))           ;go eval first operand
@@ -270,7 +270,6 @@
  read-eval-print-loop
  (perform (op initialize-stack))
  (assign exp (op parse-read) (const "EC-Eval>>>"))
- (assign env (op initial-env))
  (assign continue (label print-result))
  (goto (label eval-dispatch))
 

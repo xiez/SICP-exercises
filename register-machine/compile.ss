@@ -5,21 +5,53 @@
         ((string? exp) #true)
         (else #false)))
 
+(define (variable? exp) (symbol? exp))
+
+(define (tagged-list? exp tag)
+  (if (pair? exp)
+      (eq? (car exp) tag)
+      #false))
+;;; set!
+(define (assignment? exp)
+  (tagged-list? exp 'set!))
+(define (assignment-variable exp) (cadr exp))
+(define (assignment-value exp) (caddr exp))
+
+;;; define
+(define (definition? exp)
+  (tagged-list? exp 'define))
+(define (definition-variable exp)
+  (if (symbol? (cadr exp))
+      (cadr exp)
+      (caadr exp)))
+(define (definition-value exp)
+  (if (symbol? (cadr exp))
+      (caddr exp)
+      (make-lambda (cdadr exp)   ; formal parameters
+                   (cddr exp)))) ; body
+
+;;; lambda
+(define (lambda? exp) (tagged-list? exp 'lambda))
+(define (lambda-parameters exp) (cadr exp))
+(define (lambda-body exp) (cddr exp))
+(define (make-lambda parameters body)
+  (cons 'lambda (cons parameters body)))
+
 (define (compile exp target linkage)
   (cond ((self-evaluating? exp)
          (compile-self-evaluating 
           exp target linkage))
         ;; ((quoted? exp) 
         ;;  (compile-quoted exp target linkage))
-        ;; ((variable? exp)
-        ;;  (compile-variable 
-        ;;   exp target linkage))
-        ;; ((assignment? exp)
-        ;;  (compile-assignment
-        ;;   exp target linkage))
-        ;; ((definition? exp)
-        ;;  (compile-definition
-        ;;   exp target linkage))
+        ((variable? exp)
+         (compile-variable 
+          exp target linkage))
+        ((assignment? exp)
+         (compile-assignment
+          exp target linkage))
+        ((definition? exp)
+         (compile-definition
+          exp target linkage))
         ;; ((if? exp)
         ;;  (compile-if exp target linkage))
         ;; ((lambda? exp)
@@ -59,7 +91,7 @@
                                     '()
                                     '((goto (reg continue)))))
         ((eq? linkage 'next)
-         (make-instruction-sequence (empty-instruction-sequence)))
+         (empty-instruction-sequence))
         (else
          (make-instruction-sequence '() '() `((goto (label ,linkage)))))))
 
@@ -132,6 +164,47 @@
    linkage
    (make-instruction-sequence '() (list target) `((assign ,target (const ,exp))))))
 
+(define (compile-variable exp target linkage)
+  (end-with-linkage
+   linkage
+   (make-instruction-sequence '(env) (list target)
+                              `((assign ,target
+                                        (op lookup-variable-value)
+                                        (const ,exp) (reg env))))))
 
+(define (compile-assignment exp target linkage)
+  (let ((var (assignment-variable exp))
+        (get-value-code
+         (compile (assignment-value exp) 'val 'next)))
+    (end-with-linkage
+     linkage
+     (preserving
+      '(env)
+      get-value-code
+      (make-instruction-sequence
+       '(env val)
+       (list target)
+       `((perform (op set-variable-value!) (const ,var) (reg val) (reg env))
+         (assign ,target (const ok))))))))
+
+(define (compile-definition exp target linkage)
+  (let ((var (definition-variable exp))
+        (get-value-code
+         (compile (definition-value exp) 'val 'next)))
+    (end-with-linkage
+     linkage
+     (preserving
+      '(env)
+      get-value-code
+      (make-instruction-sequence
+       '(env val)
+       (list target)
+       `((perform (op define-variable!) (const ,var) (reg val) (reg env))
+         (assign ,target (const ok)))))))
+  )
 ;;; test compile
 (compile 42 'val 'done)
+(compile 'foo 'val 'done)
+(compile '(set! a 42) 'val 'done)
+(compile '(define a 42) 'val 'done)
+;; (compile '(define (foo x) (+ x 1)) 'val 'done)

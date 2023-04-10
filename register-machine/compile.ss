@@ -1,5 +1,40 @@
 #lang sicp
 
+;;; compile
+(define (compile exp target linkage)
+  (cond ((self-evaluating? exp)
+         (compile-self-evaluating 
+          exp target linkage))
+        ;; ((quoted? exp) 
+        ;;  (compile-quoted exp target linkage))
+        ((variable? exp)
+         (compile-variable 
+          exp target linkage))
+        ((assignment? exp)
+         (compile-assignment
+          exp target linkage))
+        ((definition? exp)
+         (compile-definition
+          exp target linkage))
+        ((if? exp)
+         (compile-if exp target linkage))
+        ;; ((lambda? exp)
+        ;;  (compile-lambda exp target linkage))
+        ((begin? exp)
+         (compile-sequence 
+          (begin-actions exp) target linkage))
+        ;; ((cond? exp) 
+        ;;  (compile 
+        ;;   (cond->if exp) target linkage))
+        ;; ((application? exp)
+        ;;  (compile-application 
+        ;;   exp target linkage))
+        (else
+         (error "Unknown expression type: 
+                 COMPILE" 
+                exp))))
+
+;;; evaluator v3
 (define (self-evaluating? exp)
   (cond ((number? exp) #true)
         ((string? exp) #true)
@@ -37,38 +72,26 @@
 (define (make-lambda parameters body)
   (cons 'lambda (cons parameters body)))
 
-(define (compile exp target linkage)
-  (cond ((self-evaluating? exp)
-         (compile-self-evaluating 
-          exp target linkage))
-        ;; ((quoted? exp) 
-        ;;  (compile-quoted exp target linkage))
-        ((variable? exp)
-         (compile-variable 
-          exp target linkage))
-        ((assignment? exp)
-         (compile-assignment
-          exp target linkage))
-        ((definition? exp)
-         (compile-definition
-          exp target linkage))
-        ;; ((if? exp)
-        ;;  (compile-if exp target linkage))
-        ;; ((lambda? exp)
-        ;;  (compile-lambda exp target linkage))
-        ;; ((begin? exp)
-        ;;  (compile-sequence 
-        ;;   (begin-actions exp) target linkage))
-        ;; ((cond? exp) 
-        ;;  (compile 
-        ;;   (cond->if exp) target linkage))
-        ;; ((application? exp)
-        ;;  (compile-application 
-        ;;   exp target linkage))
-        (else
-         (error "Unknown expression type: 
-                 COMPILE" 
-                exp))))
+;;; if
+(define (if? exp) (tagged-list? exp 'if))
+(define (if-predicate exp) (cadr exp))
+(define (if-consequent exp) (caddr exp))
+(define (if-alternative exp)
+  (if (not (null? (cdddr exp)))
+      (cadddr exp)
+      'false))
+(define (make-if predicate consequent alternative)
+  (list 'if predicate consequent alternative))
+
+;;; begin
+(define (begin? exp) (tagged-list? exp 'begin))
+(define (begin-actions exp) (cdr exp))
+(define (last-exp? seq) (null? (cdr seq)))
+(define (first-exp seq) (car seq))
+(define (rest-exps seq) (cdr seq))
+
+;;; END evaluator v3
+
 
 (define (make-instruction-sequence needs modifies statements)
   (list needs modifies statements))
@@ -94,10 +117,6 @@
          (empty-instruction-sequence))
         (else
          (make-instruction-sequence '() '() `((goto (label ,linkage)))))))
-
-;; ;;; test
-;; (compile-linkage 'return)
-;; (compile-linkage 'done)
 
 (define (end-with-linkage linkage instruction-sequence)
   (preserving
@@ -135,6 +154,12 @@
          (car seqs)
          (append-seq-list (cdr seqs)))))
   (append-seq-list seqs))
+
+(define (parallel-instruction-sequences seq1 seq2)
+  (make-instruction-sequence
+   (list-union (registers-needed seq1) (registers-needed seq2))
+   (list-union (registers-modified seq1) (registers-modified seq2))
+   (append (statements seq1) (statements seq2))))
 
 (define (list-union s1 s2)
   (cond ((null? s1) s2)
@@ -200,11 +225,63 @@
        '(env val)
        (list target)
        `((perform (op define-variable!) (const ,var) (reg val) (reg env))
-         (assign ,target (const ok)))))))
-  )
+         (assign ,target (const ok))))))))
+
+(define (compile-if exp target linkage)
+  (let ((t-branch (make-label 'true-branch))
+        (f-branch (make-label 'false-branch))
+        (after-if (make-label 'after-if)))
+    (let ((consequent-linkage
+           (if (eq? linkage 'next)
+               after-if
+               linkage)))
+      (let ((p-code
+             (compile (if-predicate exp) 'val 'next))
+            (c-code
+             (compile (if-consequent exp) target consequent-linkage))
+            (a-code
+             (compile (if-alternative exp) target linkage)))
+        (preserving
+         '(env continue)
+         p-code
+         (append-instruction-sequences
+          (make-instruction-sequence
+           '(val)
+           '()
+           `((test (op false?) (reg val))
+             (branch (label ,f-branch))))
+          (parallel-instruction-sequences
+           (append-instruction-sequences
+            t-branch c-code)
+           (append-instruction-sequences
+            f-branch a-code))
+          after-if))))))
+
+(define (compile-sequence seq target linkage)
+  (if (last-exp? seq)
+      (compile (first-exp seq) target linkage)
+      (preserving '(env continue)
+       (compile (first-exp seq) target 'next)
+       (compile-sequence (rest-exps seq) target linkage))))
+
+(define label-counter 0)
+(define (new-label-number)
+  (set! label-counter (+ 1 label-counter))
+  label-counter)
+(define (make-label name)
+  (string->symbol
+   (string-append
+    (symbol->string name)
+    (number->string (new-label-number)))))
+
 ;;; test compile
 (compile 42 'val 'done)
 (compile 'foo 'val 'done)
 (compile '(set! a 42) 'val 'done)
 (compile '(define a 42) 'val 'done)
 ;; (compile '(define (foo x) (+ x 1)) 'val 'done)
+(compile '(if 1 "1=1" "1!=1") 'val 'done)
+;; (compile '(if 0 "1==1" (if 1 "1==1" "1!=1")) 'val 'done)
+;; (compile '(begin (+ 1 1) (+ 2 2)) 'val 'done)
+(compile '(begin 1 2) 'val 'done)
+
